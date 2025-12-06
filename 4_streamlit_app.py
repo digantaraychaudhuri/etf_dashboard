@@ -14,25 +14,44 @@ st.set_page_config(page_title="Bharat ETF Dashboard", page_icon="📊", layout="
 # -------------------------------------------------------------
 st.markdown("""
 <style>
-@keyframes scroll-left {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
+.scrolling-container {
+    width: 100%;
+    overflow: hidden;
+    background: transparent;
+    height: 45px; 
+    position: relative;
 }
+
 .scrolling-text {
-  width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  color: red;
-  font-family: "Comic Sans MS";
-  font-size: 30px;
-  font-weight: bold;
-  animation: scroll-left 12s linear infinite;
-  padding: 10px;
+    position: absolute;
+    white-space: nowrap;
+    font-family: "Comic Sans MS";
+    font-size: 30px;
+    font-weight: bold;
+    color: red;
+    animation: scroll-left 10s linear infinite;
+    will-change: transform;   /* Mobile optimization */
+}
+
+@keyframes scroll-left {
+    0%   { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+
+/* MOBILE FIX — ensure visibility even if animation is blocked */
+@media (max-width: 768px) {
+    .scrolling-text {
+        animation-duration: 15s;     /* slower on mobile */
+        font-size: 24px;             /* readable on phones */
+    }
 }
 </style>
 
-<div class="scrolling-text">!! WORK IN PROGRESS — THANK YOU FOR YOUR PATIENCE !!</div>
+<div class="scrolling-container">
+    <div class="scrolling-text">!! WORK IN PROGRESS — THANK YOU FOR YOUR PATIENCE !!</div>
+</div>
 """, unsafe_allow_html=True)
+
 
 # -------------------------------------------------------------
 # LOAD & CLEAN DATA
