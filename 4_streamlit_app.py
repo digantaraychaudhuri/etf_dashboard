@@ -56,7 +56,7 @@ st.markdown("""
     text-align: center;
     margin-bottom: 20px;
 ">
-    <h1 style="color: white; margin: 0;">📊 Indian ETF Tracker</h1>
+    <h1 style="color: white; margin: 0;">📊 India ETF Tracker</h1>
 </div>
 """, unsafe_allow_html=True)
 
