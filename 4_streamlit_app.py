@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-import plotly.graph_objects as go
+import altair as alt
 
 # ============================================================
 # PAGE CONFIG
@@ -419,19 +419,20 @@ if selected_etf:
     left, right = st.columns([1, 1])
 
     with left:
-        st.write(f"**ETF Name:** {row.get('etf', '-')}")
-        st.write(f"**AMC:** {row.get('amc', '-')}")
-        st.write(f"**Category:** {row.get('category', '-')}")
-        st.write(f"**Asset Class:** {row.get('asset_class', '-')}")
-        st.write(f"**Benchmark Index:** {row.get('benchmark_index', '-')}")
-        st.write(f"**Launch Date:** {row.get('launch_date', '-')}")
-        st.write(f"**NSE Ticker:** {row.get('nse_ticker', '-')}")
-        st.write(f"**BSE Ticker:** {row.get('bse_ticker', '-')}")
-        st.write(f"**ISIN Code:** {row.get('isin_code', '-')}")
-        st.write(f"**AUM (₹ Crores):** {row.get('aum', '-')}")
-        st.write(f"**Expense Ratio:** {row.get('expense_ratio', '-')}")
-        st.write(f"**Tracking Error:** {row.get('overall_tracking_error', '-')}")
-        st.write(f"**Tracking Difference:** {row.get('overall_tracking_difference', '-')}")
+        # Display ETF details with colored labels
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>ETF Name:</span> <span style='color:#000000;'>{row.get('etf', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>AMC:</span> <span style='color:#000000;'>{row.get('amc', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Category:</span> <span style='color:#000000;'>{row.get('category', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Asset Class:</span> <span style='color:#000000;'>{row.get('asset_class', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Benchmark Index:</span> <span style='color:#000000;'>{row.get('benchmark_index', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Launch Date:</span> <span style='color:#000000;'>{row.get('launch_date', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>NSE Ticker:</span> <span style='color:#000000;'>{row.get('nse_ticker', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>BSE Ticker:</span> <span style='color:#000000;'>{row.get('bse_ticker', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>ISIN Code:</span> <span style='color:#000000;'>{row.get('isin_code', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>AUM (₹ Crores):</span> <span style='color:#000000;'>{row.get('aum', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Expense Ratio:</span> <span style='color:#000000;'>{row.get('expense_ratio', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Tracking Error:</span> <span style='color:#000000;'>{row.get('overall_tracking_error', '-')}</span></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Tracking Difference:</span> <span style='color:#000000;'>{row.get('overall_tracking_difference', '-')}</span></p>", unsafe_allow_html=True)
 
         # Official Website Link at bottom left
         st.write("")
@@ -450,7 +451,7 @@ if selected_etf:
             )
 
     # ============================================================
-    # TOP 10 HOLDINGS CHART - RIGHT SIDE (RED GRADIENT - DARKEST FOR HIGHEST)
+    # TOP 10 HOLDINGS CHART - RIGHT SIDE (RED GRADIENT - HIGHEST AT TOP)
     # ============================================================
     with right:
         if selected_etf in holdings_dict:
@@ -477,72 +478,55 @@ if selected_etf:
                         pass
 
             if holdings_data:
-                # Create DataFrame and sort by weight (ascending for chart display)
+                # Create DataFrame and sort by weight (DESCENDING - highest at top)
                 holdings_chart_df = pd.DataFrame(holdings_data)
-                holdings_chart_df = holdings_chart_df.sort_values('Weight', ascending=True)
+                holdings_chart_df = holdings_chart_df.sort_values('Weight', ascending=False)
 
-                # Create red gradient color list - light to dark red
-                colors = [
-                    '#FFCDD2', '#EF9A9A', '#E57373', '#EF5350',
-                    '#F44336', '#E53935', '#D32F2F', '#C62828',
-                    '#B71C1C', '#8B0000'
-                ]
-
-                # Take only as many colors as we have data points
-                bar_colors = colors[:len(holdings_chart_df)]
-
-                # Create horizontal bar chart with red gradient colors (NO BORDERS)
-                fig = go.Figure()
-
-                fig.add_trace(go.Bar(
-                    y=holdings_chart_df['Company'],
-                    x=holdings_chart_df['Weight'],
-                    orientation='h',
-                    marker=dict(
-                        color=bar_colors,
-                        line=dict(width=0)  # No border
-                    ),
-                    text=[f'<b>{w:.2f}%</b>' for w in holdings_chart_df['Weight']],
-                    textposition='outside',
-                    textfont=dict(
-                        family="Comic Sans MS",
-                        size=12,
-                        color='#000000'
-                    ),
-                    hovertemplate='<b>%{y}</b><br>Weight: %{x:.2f}%<extra></extra>'
-                ))
-
-                fig.update_layout(
-                    showlegend=False,
-                    height=550,
-                    xaxis=dict(
-                        title=dict(
-                            text='<b>Weight (%)</b>',
-                            font=dict(family="Comic Sans MS", size=14, color='#000000')
-                        ),
-                        tickfont=dict(family="Comic Sans MS", size=11),
-                        showgrid=True,
-                        gridcolor='rgba(128, 128, 128, 0.2)',
-                        zeroline=True,
-                        zerolinecolor='rgba(128, 128, 128, 0.3)',
-                        zerolinewidth=2
-                    ),
-                    yaxis=dict(
-                        title='',
-                        tickfont=dict(family="Comic Sans MS", size=11, color='#000000')
-                    ),
-                    font=dict(family="Comic Sans MS", size=11),
-                    margin=dict(l=10, r=50, t=20, b=40),
-                    plot_bgcolor='rgba(230, 230, 250, 0.3)',
-                    paper_bgcolor='white',
-                    hoverlabel=dict(
-                        bgcolor="white",
-                        font_size=12,
-                        font_family="Comic Sans MS"
-                    )
+                # Create red gradient color scale - light to dark red
+                color_scale = alt.Scale(
+                    domain=[holdings_chart_df['Weight'].min(), holdings_chart_df['Weight'].max()],
+                    range=['#FFCDD2', '#8B0000']
                 )
 
-                st.plotly_chart(fig, width='stretch')
+                # Create the base chart layer
+                base = alt.Chart(holdings_chart_df).encode(
+                    y=alt.Y('Company:N', 
+                           sort=alt.EncodingSortField(field='Weight', order='descending'),
+                           axis=alt.Axis(title='', labelFontSize=12, labelFontWeight='bold')),
+                    x=alt.X('Weight:Q', 
+                           axis=alt.Axis(title='Weight (%)', titleFontSize=14, labelFontSize=11))
+                )
+
+                # Bar layer
+                bars = base.mark_bar().encode(
+                    color=alt.Color('Weight:Q', scale=color_scale, legend=None),
+                    tooltip=[
+                        alt.Tooltip('Company:N', title='Company'),
+                        alt.Tooltip('Weight:Q', title='Weight (%)', format='.2f')
+                    ]
+                )
+
+                # Text layer
+                text = base.mark_text(
+                    align='left',
+                    baseline='middle',
+                    dx=5,
+                    fontSize=12,
+                    fontWeight='bold'
+                ).encode(
+                    text=alt.Text('Weight:Q', format='.2f')
+                )
+
+                # Layer the charts
+                final_chart = alt.layer(bars, text).properties(
+                    height=550
+                ).configure_view(
+                    strokeWidth=0
+                ).configure_axis(
+                    gridColor='rgba(128, 128, 128, 0.2)'
+                )
+
+                st.altair_chart(final_chart, width='stretch')
 
                 # Display Total contribution with enhanced styling (red gradient)
                 total_value = etf_data.get('Total', '')
@@ -583,4 +567,4 @@ st.markdown("""
         Conceptualized by Diganta Raychaudhuri
     </p>
 </div>
-""", unsafe_allow_html=True) 
+""", unsafe_allow_html=True)
