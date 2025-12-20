@@ -1,27 +1,29 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import altair as alt
-import datetime as dt
+import os
+import plotly.express as px
+import plotly.graph_objects as go
 
-# -------------------------------------------------------------
+# ============================================================
 # PAGE CONFIG
-# -------------------------------------------------------------
-st.set_page_config(page_title="Bharat ETF Dashboard", page_icon="📊", layout="wide")
+# ============================================================
+st.set_page_config(
+    page_title="Indian ETF Tracker",
+    page_icon="📊",
+    layout="wide"
+)
 
-# -------------------------------------------------------------
-# TOP SCROLLING MESSAGE (Comic Sans + Scrolling)
-# -------------------------------------------------------------
+# ============================================================
+# TOP SCROLLING MESSAGE
+# ============================================================
 st.markdown("""
 <style>
 .scrolling-container {
     width: 100%;
     overflow: hidden;
-    background: transparent;
-    height: 45px; 
+    height: 45px;
     position: relative;
 }
-
 .scrolling-text {
     position: absolute;
     white-space: nowrap;
@@ -29,324 +31,557 @@ st.markdown("""
     font-size: 30px;
     font-weight: bold;
     color: red;
-    animation: scroll-left 10s linear infinite;
-    will-change: transform;   /* Mobile optimization */
+    animation: scroll-left 12s linear infinite;
 }
-
 @keyframes scroll-left {
-    0%   { transform: translateX(100%); }
+    0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
-}
-
-/* MOBILE FIX — ensure visibility even if animation is blocked */
-@media (max-width: 768px) {
-    .scrolling-text {
-        animation-duration: 15s;     /* slower on mobile */
-        font-size: 24px;             /* readable on phones */
-    }
 }
 </style>
 
 <div class="scrolling-container">
-    <div class="scrolling-text">!! WORK IN PROGRESS — THANK YOU FOR YOUR PATIENCE !!</div>
+    <div class="scrolling-text">
+        WORK IN PROGRESS THANK YOU FOR YOUR PATIENCE
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
+# ============================================================
+# HEADER
+# ============================================================
+st.markdown("""
+<div style="
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    margin-bottom: 20px;
+">
+    <h1 style="color: white; margin: 0;">📊 Indian ETF Tracker</h1>
+</div>
+""", unsafe_allow_html=True)
 
-# -------------------------------------------------------------
-# LOAD & CLEAN DATA
-# -------------------------------------------------------------
-@st.cache_data
-def load_data():
-    df = pd.read_csv("etf_master.csv")
+# Black info message
+st.markdown("""
+<div style="
+    background-color: #f0f0f0;
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 5px solid #000000;
+    margin-bottom: 20px;
+">
+    <p style="color: #000000; margin: 0; font-weight: 600; font-size: 15px;">
+        ℹ️ Detailed holding available for selected representative ETFs only
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-    # Normalize column names
-    df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
-
-    # Clean strings
-    df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
-
-    return df
-
-df = load_data()
-
-# -------------------------------------------------------------
-# STANDARDIZE AMC COLUMN
-# -------------------------------------------------------------
-if "amc" not in df.columns:
-    for col in df.columns:
-        if "amc" in col or "issuer" in col or "fund_house" in col:
-            df = df.rename(columns={col: "amc"})
-            break
-
-df["amc"] = df["amc"].astype(str).str.strip()
-
-# -------------------------------------------------------------
-# CLEAN AUM COLUMN
-# -------------------------------------------------------------
-aum_col = "aum_in_cores" if "aum_in_cores" in df.columns else "aum(_in_cores)"
-
-df[aum_col] = (
-    df[aum_col]
-    .astype(str)
-    .str.replace(",", "")
-    .str.replace(" ", "")
-    .str.replace("\u2009", "")
-)
-
-df[aum_col] = pd.to_numeric(df[aum_col], errors="coerce")
-
-# -------------------------------------------------------------
-# DATE & FUND AGE CALCULATION
-# -------------------------------------------------------------
-df["date_of_inception"] = pd.to_datetime(df["date_of_inception"], errors="coerce")
-today = dt.datetime.today()
-
-df["fund_age_days"] = (today - df["date_of_inception"]).dt.days
-df["fund_age_months"] = df["fund_age_days"] / 30.44
-df["fund_age_years"] = df["fund_age_days"] / 365.25
-
-df["fund_age_years"] = df["fund_age_years"].round(2)   # <-- ROUND TO 2 DECIMALS
-
-df["overall_tracking_error"] = pd.to_numeric(df["overall_tracking_error"], errors="coerce")
-
-# -------------------------------------------------------------
-# CSS STYLING
-# -------------------------------------------------------------
+# ============================================================
+# MAUVE BACKGROUND + GLOBAL FONT
+# ============================================================
 st.markdown("""
 <style>
-    body { background: linear-gradient(180deg, #f7fbff 0%, #ffffff 40%); }
+/* Global app background */
+.stApp {
+    background-color: #E6E6FA;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+}
 
-    .main-header { 
-        background: linear-gradient(90deg, #0E4C92, #1A73E8);
-        color: white !important;
-        padding: 25px;
-        border-radius: 12px;
-        text-align:center;
-        margin-bottom: 25px;
-    }
-
-    .metric-card {
-        background: rgba(255,255,255,0.95);
-        padding: 16px;
-        border-radius: 12px;
-        color: #000 !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    .metric-value {
-        font-size: 24px;
-        font-weight: 700;
-        color: #145DA0 !important;
-    }
-
-    .details-card {
-        background: #FFF8DC; /* light yellow */
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    .footer {
-        text-align:center;
-        color:#555;
-        margin-top:40px;
-        font-size:15px;
-    }
+/* Ensure all text elements inherit the font */
+html, body, [class*="css"] {
+    font-family: "Comic Sans MS", "Comic Sans", cursive !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------------------
-# HEADER (Updated Text)
-# -------------------------------------------------------------
-st.markdown("""
-<div class="main-header">
-    <h1 style="font-size:36px; font-weight:600;">📊 Bharat ETF Dashboard</h1>
-</div>
-""", unsafe_allow_html=True)
+# ============================================================
+# LOAD DATA
+# ============================================================
+FILE = "etf_master_new_cleaned.csv"
+HOLDINGS_FILE = "holding_analysis.csv"
 
-# -------------------------------------------------------------
-# FILTER INSTRUCTION MESSAGE
-# -------------------------------------------------------------
-st.markdown("### 👉 Choose your ETF filters")
+if not os.path.exists(FILE):
+    st.error("❌ File etf_master_new_cleaned.csv not found")
+    st.stop()
 
-# -------------------------------------------------------------
-# FILTER BAR
-# -------------------------------------------------------------
-colA, colB, colC = st.columns([1.2, 1.2, 1.2])
+df = pd.read_csv(FILE, dtype=str)
+df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
 
-with colA:
+# ============================================================
+# LOAD HOLDINGS DATA - SPECIAL HANDLING FOR MULTIPLE GROUPS
+# ============================================================
+holdings_dict = {}
+
+if os.path.exists(HOLDINGS_FILE):
+    # Read the raw CSV file
+    with open(HOLDINGS_FILE, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    current_header = None
+    current_data = []
+
+    for line in lines:
+        line = line.strip()
+
+        # Skip empty lines
+        if not line or line == ',,,,,,,,,,,,,':
+            # If we have accumulated data, process it
+            if current_header and current_data:
+                try:
+                    # Create DataFrame from accumulated data
+                    temp_df = pd.DataFrame(current_data)
+                    # Store each ETF's data in the dictionary
+                    for _, row in temp_df.iterrows():
+                        etf_name = row.get('ETF', '').strip()
+                        if etf_name and etf_name != 'ETF':
+                            holdings_dict[etf_name] = row.to_dict()
+                except Exception as e:
+                    pass
+
+                # Reset for next group
+                current_header = None
+                current_data = []
+            continue
+
+        # Split the line
+        parts = [p.strip() for p in line.split(',')]
+
+        # Check if this is a header line (starts with "ETF")
+        if parts[0] == 'ETF':
+            # Process previous group if exists
+            if current_header and current_data:
+                try:
+                    temp_df = pd.DataFrame(current_data)
+                    for _, row in temp_df.iterrows():
+                        etf_name = row.get('ETF', '').strip()
+                        if etf_name and etf_name != 'ETF':
+                            holdings_dict[etf_name] = row.to_dict()
+                except Exception as e:
+                    pass
+
+            # Start new group
+            current_header = parts
+            current_data = []
+        elif current_header and parts[0]:  # Data row (has ETF name)
+            # Create row dictionary
+            row_dict = {}
+            for i, col_name in enumerate(current_header):
+                if i < len(parts):
+                    row_dict[col_name] = parts[i]
+            current_data.append(row_dict)
+
+    # Process last group
+    if current_header and current_data:
+        try:
+            temp_df = pd.DataFrame(current_data)
+            for _, row in temp_df.iterrows():
+                etf_name = row.get('ETF', '').strip()
+                if etf_name and etf_name != 'ETF':
+                    holdings_dict[etf_name] = row.to_dict()
+        except Exception as e:
+            pass
+
+# AUM cleanup
+aum_col = next((c for c in df.columns if "aum" in c), None)
+if aum_col:
+    df["aum"] = (
+        df[aum_col]
+        .str.replace(",", "")
+        .str.replace("\u2009", "")
+    )
+    df["aum"] = pd.to_numeric(df["aum"], errors="coerce")
+else:
+    df["aum"] = 0.0
+
+# Helper columns
+df["_amc"] = df["amc"].str.lower()
+df["_asset"] = df["asset_class"].str.lower()
+df["_text"] = (
+    df["category"].astype(str).str.lower() + " " +
+    df["benchmark_index"].astype(str).str.lower()
+)
+
+# ============================================================
+# ASSET MAP
+# ============================================================
+ASSET_MAP = {
+    "EQUITY": r"\bequity\b",
+    "GLOBAL EQUITY": r"global|international|overseas|nasdaq|s&p|msci",
+    "DEBT": r"debt|fixed\s*income|bond|gilt|g-sec|sdl|liquid",
+    "COMMODITIES": r"commodity|gold|silver"
+}
+
+# ============================================================
+# BROADER CATEGORIES - EXCLUDE FACTOR INDICES
+# ============================================================
+BROADER = {
+    "Nifty 50": r"nifty\s*50\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility|shariah))",
+    "BSE Sensex": r"\bsensex\b(?!\s*next)(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty Next 50": r"nifty\s*next\s*50(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty Total Market": r"nifty\s*total\s*market(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "BSE SENSEX Next 30": r"sensex\s*next\s*30(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty LargeMidCap 250": r"largemidcap\s*250(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty 200": r"nifty\s*200\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility|factor))",
+    "Nifty SmallCap 250": r"smallcap\s*250\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty Midcap 150": r"midcap\s*150\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty 100": r"nifty\s*100\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility|factor))",
+    "BSE 500": r"bse\s*500(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "BSE Midcap Select": r"midcap\s*select(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty Midcap 50": r"midcap\s*50\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty MidCap 100": r"midcap\s*100\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty 500 MultiCap 50:25:25": r"(?:50:25:25|nifty\s*500\s*multicap\s*50\s*25\s*25)(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty 500": r"nifty\s*500\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility|factor|multicap\s*50\s*25\s*25|flexicap))",
+    "BSE Sensex Next 50": r"sensex\s*next\s*50(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "BSE 100": r"bse\s*100(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
+    "Nifty Smallcap 100": r"smallcap\s*100\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))"
+}
+
+# ============================================================
+# SECTORAL
+# ============================================================
+SECTORAL = {
+    "BANK": r"\bbank\b",
+    "FINANCIAL SERVICES": r"financial",
+    "HEALTHCARE": r"healthcare|health",
+    "IT": r"\bit\b|information\s*technology",
+    "PRIVATE BANK": r"private.*bank",
+    "PSU BANK": r"psu.*bank",
+    "POWER": r"power",
+    "REALTY": r"realty|real\s*estate",
+    "AUTO": r"\bauto\b",
+    "FINANCIAL SERVICES EX-BANK": r"financial.*ex.*bank",
+    "FMCG": r"fmcg",
+    "OIL AND GAS": r"oil|gas",
+    "CHEMICALS": r"chemical",
+    "Metal": r"metal",
+    "PHARMA": r"pharma"
+}
+
+# ============================================================
+# THEMATIC
+# ============================================================
+THEMATIC = {
+    "BHARAT 22": r"bharat.*22",
+    "Capital Market": r"capital.*market(?!.*insurance)",
+    "Capital Market & Insurance": r"capital.*market.*insurance",
+    "Commodities": r"commodit",
+    "CPSE": r"\bcpse\b",
+    "Defence": r"defence|defense",
+    "Digital": r"digital",
+    "Energy": r"energy",
+    "ESG SECTOR LEADERS": r"esg",
+    "EV and New Age Automotive": r"ev|new.*age.*auto",
+    "India Cosumption": r"india.*consumption",
+    "India Infrastructure": r"india.*infrastructure",
+    "Infrastructure": r"infrastructure|infra",
+    "Internet": r"internet",
+    "Manufacturing": r"manufacturing",
+    "MNC": r"\bmnc\b",
+    "New Age Consumtion": r"new.*age.*consum",
+    "PSE": r"\bpse\b",
+    "Railways": r"railway",
+    "PSU": r"\bpsu\b",
+    "Tourism": r"tourism"
+}
+
+# ============================================================
+# STRATEGIC - FIXED WITH NON-CAPTURING GROUPS
+# ============================================================
+STRATEGIC = {
+    "Nifty 50 Factor Indices": r"nifty\s*50.*(?:equal\s*weight|value\s*20|shariah)",
+    "Nifty 100 Factor Indices": r"nifty\s*100.*(?:quality\s*30|low\s*volatility\s*30|equal\s*weight)",
+    "Nifty 200 Factor Indices": r"nifty\s*200.*(?:momentum\s*30|quality\s*30|value\s*30|alpha\s*30)",
+    "Nifty 500 Factor Indices": r"nifty\s*500.*(?:value\s*50|flexicap\s*quality\s*30|multicap\s*momentum\s*quality\s*50|momentum\s*50|low\s*volatility\s*50)",
+    "Nifty Alpha Factor Indices": r"nifty\s*alpha.*(?:low\s*volatility\s*30|alpha\s*50)|nifty\s*alpha\s*50",
+    "Nifty Dividend Opportunities 50": r"nifty\s*dividend\s*opportunities\s*50",
+    "Nifty Growth Sectors 15": r"nifty\s*growth\s*sectors\s*15",
+    "Nifty Midcap 150 Factor Indices": r"nifty\s*midcap\s*150.*(?:quality\s*50|momentum\s*50)",
+    "Nifty MidSmallcap400 Momentum Quality 100": r"nifty\s*midsmallcap\s*400\s*momentum\s*quality\s*100",
+    "Nifty Smallcap250 Momentum Quality 100": r"nifty\s*smallcap\s*250\s*momentum\s*quality\s*100",
+    "Nifty Top 10": r"nifty\s*top\s*10\s*equal\s*weight",
+    "Nifty Top 15": r"nifty\s*top\s*15\s*equal\s*weight",
+    "Nifty Total Market Factor Indices": r"nifty\s*total\s*market.*(?:momentum\s*quality\s*50)",
+    "BSE Select IPO": r"bse\s*select\s*ipo",
+    "BSE Quality": r"bse\s*quality",
+    "BSE Low Volatility": r"bse\s*low\s*volatility",
+    "BSE Enhanced Value": r"bse\s*enhanced\s*value",
+    "BSE 200 Factor Indices": r"bse\s*200\s*equal\s*weight"
+}
+
+# ============================================================
+# FILTER UI
+# ============================================================
+st.write("### 🔍 Filter ETFs")
+
+c1, c2 = st.columns(2)
+
+with c1:
     amc_list = ["All"] + sorted(df["amc"].dropna().unique())
-    sel_amc = st.selectbox("AMC", amc_list)
+    selected_amc = st.selectbox("Select AMC", amc_list)
 
-with colB:
-    cat_list = ["All"] + sorted(df["category"].dropna().unique())
-    sel_cat = st.selectbox("Category", cat_list)
-
-with colC:
-    bench_list = ["All"] + sorted(df["benchmark_index"].dropna().unique())
-    sel_bench = st.selectbox("Benchmark Index", bench_list)
-
-search = st.text_input("Search ETF or Ticker")
-
-# -------------------------------------------------------------
-# APPLY FILTERS → filtered_df
-# -------------------------------------------------------------
-filtered_df = df.copy()
-
-if sel_amc != "All":
-    filtered_df = filtered_df[filtered_df["amc"] == sel_amc]
-
-if sel_cat != "All":
-    filtered_df = filtered_df[filtered_df["category"] == sel_cat]
-
-if sel_bench != "All":
-    filtered_df = filtered_df[filtered_df["benchmark_index"] == sel_bench]
-
-if search:
-    filtered_df = filtered_df[
-        filtered_df["etf"].str.contains(search, case=False, na=False) |
-        filtered_df["nse_ticker"].astype(str).str.contains(search, case=False, na=False)
-    ]
-
-# -------------------------------------------------------------
-# DYNAMIC KPIs
-# -------------------------------------------------------------
-k1, k2 = st.columns(2)
-
-filtered_count = len(filtered_df)
-filtered_aum_total = filtered_df[aum_col].sum(skipna=True)
-safe_aum = 0 if pd.isna(filtered_aum_total) else int(filtered_aum_total)
-
-with k1:
-    st.markdown(
-        f'<div class="metric-card"><b>Number of ETFs</b><br>'
-        f'<span class="metric-value">{filtered_count}</span></div>',
-        unsafe_allow_html=True,
+with c2:
+    selected_asset = st.selectbox(
+        "Select Asset Class",
+        ["All", "EQUITY", "GLOBAL EQUITY", "DEBT", "COMMODITIES"]
     )
 
-with k2:
-    st.markdown(
-        f'<div class="metric-card"><b>Total AUM (Cr.)</b><br>'
-        f'<span class="metric-value">{format(safe_aum,",")}</span></div>',
-        unsafe_allow_html=True,
+sub_cat = None
+sub_sub_cat = None
+lookup = None
+
+if selected_asset == "EQUITY":
+    sub_cat = st.selectbox(
+        "Select Equity Category",
+        ["Broader", "Sectoral", "Thematic", "Strategic"]
     )
 
-# -------------------------------------------------------------
-# TABLE
-# -------------------------------------------------------------
-st.write(f"### Showing {filtered_count} ETFs:")
-st.dataframe(filtered_df, use_container_width=True)
+    lookup = {
+        "Broader": BROADER,
+        "Sectoral": SECTORAL,
+        "Thematic": THEMATIC,
+        "Strategic": STRATEGIC
+    }[sub_cat]
 
-# -------------------------------------------------------------
-# TABS
-# -------------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📑 ETF Details",
-    "📊 Age vs AUM (Bar Chart)",
-    "📉 Lowest Tracking Error",
-    "🔥 Sectoral Heatmap"
-])
+    sub_sub_cat = st.selectbox(
+        f"Select {sub_cat}",
+        ["All"] + list(lookup.keys())
+    )
 
-# -------------------------------------------------------------
-# TAB 1 — DETAILS
-# -------------------------------------------------------------
-with tab1:
-    st.subheader("ETF Details")
+elif selected_asset == "DEBT":
+    sub_cat = st.selectbox(
+        "Select Debt Category",
+        ["All", "Bharat Bond", "G-Sec", "Gilt", "Liquid", "SDL"]
+    )
 
-    etf_list = [""] + sorted(filtered_df["etf"].dropna())
-    chosen = st.selectbox("Select ETF", etf_list)
+elif selected_asset == "COMMODITIES":
+    sub_cat = st.selectbox(
+        "Select Commodity",
+        ["All", "Gold", "Silver"]
+    )
 
-    if chosen:
-        row = filtered_df[filtered_df["etf"] == chosen].iloc[0]
+# ============================================================
+# FILTER LOGIC
+# ============================================================
+mask = pd.Series(True, index=df.index)
 
-        st.markdown('<div class="details-card">', unsafe_allow_html=True)
+if selected_amc != "All":
+    mask &= df["_amc"] == selected_amc.lower()
 
-        st.markdown("### ETF Information")
+if selected_asset != "All" and selected_asset != "COMMODITIES":
+    mask &= df["_asset"].str.contains(ASSET_MAP[selected_asset], na=False)
 
-        col1, col2, col3 = st.columns(3)
+if selected_asset == "COMMODITIES":
+    mask &= df["_text"].str.contains(r"commodity|gold|silver", na=False)
+    if sub_cat and sub_cat != "All":
+        commodity_map = {"Gold": r"gold", "Silver": r"silver"}
+        mask &= df["_text"].str.contains(commodity_map[sub_cat], na=False)
 
-        with col1:
-            st.write("**AMC:**", row["amc"])
-            st.write("**Category:**", row["category"])
-            st.write("**Benchmark:**", row["benchmark_index"])
+if selected_asset == "EQUITY" and sub_sub_cat and sub_sub_cat != "All":
+    mask &= df["_text"].str.contains(lookup[sub_sub_cat], na=False)
 
-        with col2:
-            st.write("**ISIN:**", row["isin_code"])
-            st.write("**NSE Ticker:**", row["nse_ticker"])
-            st.write("**BSE Ticker:**", row["bse_ticker"])
+if selected_asset == "DEBT" and sub_cat and sub_cat != "All":
+    debt_map = {
+        "Bharat Bond": r"bharat\s*bond",
+        "G-Sec": r"g[-\s]?sec|government",
+        "Gilt": r"gilt",
+        "Liquid": r"liquid|overnight|money\s*market",
+        "SDL": r"sdl|state\s*development"
+    }
+    mask &= df["_text"].str.contains(debt_map[sub_cat], na=False)
 
-        with col3:
-            st.write("**AUM (Cr):**", row[aum_col])
-            st.write("**Expense Ratio:**", row.get("expense_ratio"))
-            st.write("**Tracking Error:**", row["overall_tracking_error"])
-            st.write("**Fund Age (Years):**", round(row["fund_age_years"], 2))
+result = df.loc[mask].copy()
 
-        if pd.notna(row["website_link"]):
-            st.markdown("### For more information please visit:")
-            st.markdown(f"[🌐 Website Link]({row['website_link']})")
+# ============================================================
+# METRICS
+# ============================================================
+st.write("---")
+c1, c2 = st.columns(2)
+c1.metric("📊 Number of ETFs", result.shape[0])
+c2.metric("💰 Total AUM (₹ Crores)", f"₹ {result['aum'].sum(skipna=True):,.2f}")
+st.write("---")
 
-        st.markdown('</div>', unsafe_allow_html=True)
+# ============================================================
+# ETF SELECTOR
+# ============================================================
+selected_etf = st.selectbox(
+    "Select an ETF to view details",
+    [""] + result["etf"].tolist()
+)
 
-# -------------------------------------------------------------
-# TAB 2 — INTERACTIVE BAR CHART (Age vs AUM)
-# -------------------------------------------------------------
-with tab2:
-    st.subheader("Interactive Bar Chart — ETF Age vs AUM")
+# ============================================================
+# ETF CARD WITH HOLDINGS CHART
+# ============================================================
+if selected_etf:
+    row = result[result["etf"] == selected_etf].iloc[0]
 
-    chart = alt.Chart(filtered_df).mark_bar(
-        size=25,                   # BROADER BARS
-        color="maroon",            # RED / MAROON COLOR
-        opacity=0.85
-    ).encode(
-        x=alt.X("fund_age_years:Q", title="Fund Age (Years, rounded to 2 decimals)"),
-        y=alt.Y(f"{aum_col}:Q", title="AUM (Crores)"),
-        tooltip=["etf", "amc", "fund_age_years", aum_col]
-    ).properties(
-        width=950,
-        height=500
-    ).interactive()
+    st.markdown("### 📄 ETF Details")
 
-    st.altair_chart(chart, use_container_width=True)
+    left, right = st.columns([1, 1])
 
-# -------------------------------------------------------------
-# TAB 3 — LOWEST TRACKING ERROR
-# -------------------------------------------------------------
-with tab3:
-    st.subheader("Lowest Tracking Error ETFs (Filtered)")
+    with left:
+        st.write(f"**ETF Name:** {row.get('etf', '-')}")
+        st.write(f"**AMC:** {row.get('amc', '-')}")
+        st.write(f"**Category:** {row.get('category', '-')}")
+        st.write(f"**Asset Class:** {row.get('asset_class', '-')}")
+        st.write(f"**Benchmark Index:** {row.get('benchmark_index', '-')}")
+        st.write(f"**Launch Date:** {row.get('launch_date', '-')}")
+        st.write(f"**NSE Ticker:** {row.get('nse_ticker', '-')}")
+        st.write(f"**BSE Ticker:** {row.get('bse_ticker', '-')}")
+        st.write(f"**ISIN Code:** {row.get('isin_code', '-')}")
+        st.write(f"**AUM (₹ Crores):** {row.get('aum', '-')}")
+        st.write(f"**Expense Ratio:** {row.get('expense_ratio', '-')}")
+        st.write(f"**Tracking Error:** {row.get('overall_tracking_error', '-')}")
+        st.write(f"**Tracking Difference:** {row.get('overall_tracking_difference', '-')}")
 
-    filt = filtered_df.dropna(subset=["overall_tracking_error"]).copy()
-    filt = filt.sort_values("overall_tracking_error").head(10)
+        # Official Website Link at bottom left
+        st.write("")
+        website = row.get("website_link", "")
+        if isinstance(website, str) and website.strip():
+            st.markdown(
+                f"""
+                <div style="background:#8B4513;padding:14px;border-radius:8px;text-align:center;margin-top:15px;">
+                    <a href="{website}" target="_blank"
+                       style="color:white;font-weight:bold;text-decoration:none;">
+                        🌐 Official Website
+                    </a>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-    st.dataframe(filt, use_container_width=True)
+    # ============================================================
+    # TOP 10 HOLDINGS CHART - RIGHT SIDE (RED GRADIENT - DARKEST FOR HIGHEST)
+    # ============================================================
+    with right:
+        if selected_etf in holdings_dict:
+            st.markdown("### 📈 Top 10 Holdings")
 
-# -------------------------------------------------------------
-# TAB 4 — SECTORAL HEATMAP
-# -------------------------------------------------------------
-with tab4:
-    st.subheader("Sectoral Heatmap – AUM by Category")
+            etf_data = holdings_dict[selected_etf]
 
-    heat = filtered_df.pivot_table(
-        index="category",
-        values=aum_col,
-        aggfunc="sum"
-    ).reset_index()
+            # Extract holdings (skip ETF, ISIN CODE, NSE TICKER, Total)
+            holdings_data = []
+            skip_keys = ['ETF', 'ISIN CODE', 'NSE TICKER', 'Total']
 
-    heat_chart = alt.Chart(heat).mark_rect().encode(
-        x=alt.X("category:N", title="ETF Category"),
-        y=alt.Y("category:N", title=""),
-        color=alt.Color(f"{aum_col}:Q", scale=alt.Scale(scheme='blues')),
-        tooltip=["category", aum_col]
-    ).properties(width=700, height=550)
+            for key, value in etf_data.items():
+                if key not in skip_keys and value and value.strip():
+                    try:
+                        # Clean company name
+                        company_name = key.replace('Ltd.', '').replace('Ltd,', '').replace('Ltd', '').replace('Ordinary Shares', '').replace('Class A', '').replace('Class B', '').replace('Class H', '').strip()
+                        weight = float(value)
 
-    st.altair_chart(heat_chart, use_container_width=True)
+                        holdings_data.append({
+                            'Company': company_name,
+                            'Weight': weight
+                        })
+                    except:
+                        pass
 
-# -------------------------------------------------------------
+            if holdings_data:
+                # Create DataFrame and sort by weight (ascending for chart display)
+                holdings_chart_df = pd.DataFrame(holdings_data)
+                holdings_chart_df = holdings_chart_df.sort_values('Weight', ascending=True)
+
+                # Create red gradient color list - light to dark red
+                colors = [
+                    '#FFCDD2', '#EF9A9A', '#E57373', '#EF5350',
+                    '#F44336', '#E53935', '#D32F2F', '#C62828',
+                    '#B71C1C', '#8B0000'
+                ]
+
+                # Take only as many colors as we have data points
+                bar_colors = colors[:len(holdings_chart_df)]
+
+                # Create horizontal bar chart with red gradient colors (NO BORDERS)
+                fig = go.Figure()
+
+                fig.add_trace(go.Bar(
+                    y=holdings_chart_df['Company'],
+                    x=holdings_chart_df['Weight'],
+                    orientation='h',
+                    marker=dict(
+                        color=bar_colors,
+                        line=dict(width=0)  # No border
+                    ),
+                    text=[f'<b>{w:.2f}%</b>' for w in holdings_chart_df['Weight']],
+                    textposition='outside',
+                    textfont=dict(
+                        family="Comic Sans MS",
+                        size=12,
+                        color='#000000'
+                    ),
+                    hovertemplate='<b>%{y}</b><br>Weight: %{x:.2f}%<extra></extra>'
+                ))
+
+                fig.update_layout(
+                    showlegend=False,
+                    height=550,
+                    xaxis=dict(
+                        title=dict(
+                            text='<b>Weight (%)</b>',
+                            font=dict(family="Comic Sans MS", size=14, color='#000000')
+                        ),
+                        tickfont=dict(family="Comic Sans MS", size=11),
+                        showgrid=True,
+                        gridcolor='rgba(128, 128, 128, 0.2)',
+                        zeroline=True,
+                        zerolinecolor='rgba(128, 128, 128, 0.3)',
+                        zerolinewidth=2
+                    ),
+                    yaxis=dict(
+                        title='',
+                        tickfont=dict(family="Comic Sans MS", size=11, color='#000000')
+                    ),
+                    font=dict(family="Comic Sans MS", size=11),
+                    margin=dict(l=10, r=50, t=20, b=40),
+                    plot_bgcolor='rgba(230, 230, 250, 0.3)',
+                    paper_bgcolor='white',
+                    hoverlabel=dict(
+                        bgcolor="white",
+                        font_size=12,
+                        font_family="Comic Sans MS"
+                    )
+                )
+
+                st.plotly_chart(fig, width='stretch')
+
+                # Display Total contribution with enhanced styling (red gradient)
+                total_value = etf_data.get('Total', '')
+                if total_value and total_value.strip():
+                    try:
+                        total_pct = float(total_value)
+                        st.markdown(
+                            f"""
+                            <div style="
+                                background: linear-gradient(135deg, #F44336 0%, #B71C1C 100%);
+                                padding: 18px;
+                                border-radius: 10px;
+                                text-align: center;
+                                margin-top: 15px;
+                                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                            ">
+                                <p style="color: white; font-size: 18px; margin: 0; font-weight: bold; font-family: 'Comic Sans MS';">
+                                    💎 Total contribution from top 10 holdings: {total_pct}%
+                                </p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                    except:
+                        pass
+            else:
+                st.info("📊 Holdings data available but could not be parsed.")
+        else:
+            st.info("📊 Holdings data not available for this ETF in the dataset.")
+
+# ============================================================
 # FOOTER
-# -------------------------------------------------------------
+# ============================================================
+st.markdown("---")
 st.markdown("""
-<div class="footer">
-Conceptualized by <b>Diganta Raychaudhuri</b>
+<div style="text-align: center; padding: 10px;">
+    <p style="font-size: 14px; color: #4A235A; font-weight: bold;">
+        Conceptualized by Diganta Raychaudhuri
+    </p>
 </div>
-""", unsafe_allow_html=True)
-
+""", unsafe_allow_html=True) 
