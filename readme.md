@@ -3,7 +3,8 @@
 An interactive dashboard that provides analytics on:
 - Broader ETFs  
 - Sectoral ETFs  
-- Thematic ETFs  
+- Thematic ETFs
+- Glpbal ETFs
 
 Features:
 - ETF explorer  
