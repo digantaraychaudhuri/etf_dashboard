@@ -657,14 +657,25 @@ if selected_etf:
             latest_price_date = df_price["date"].max()
             df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
 
-            # FIXED: Price file uses 'symbol' column, standardize it
-            if 'symbol' in df_price.columns:
-                df_price["symbol"] = df_price["symbol"].astype(str).str.strip()
-            elif 'nse_ticker' in df_price.columns:
-                df_price["symbol"] = df_price["nse_ticker"].astype(str).str.strip()
+        # FIXED: Price file uses 'symbol' column, standardize it
+        if 'symbol' in df_price.columns:
+            df_price["symbol"] = (
+            df_price["symbol"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )    
+        elif 'nse_ticker' in df_price.columns:
+            df_price["symbol"] = (
+            df_price["nse_ticker"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+
 
             # FIXED: Get the ticker from the 'symbol' column in the master file
-            ticker = row.get("symbol", "")
+            ticker = str(row.get("symbol", "")).strip().upper()
             price_row = df_price[df_price["symbol"] == ticker]
 
             if not price_row.empty:
@@ -678,9 +689,11 @@ if selected_etf:
 
                 # Show price chart if toggled
                 if st.session_state[f'show_price_{ticker}']:
-                    ltp_val = price_row.iloc[0]["ltp"]
-                    nav_val = price_row.iloc[0]["nav"]
-
+                    ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
+                    nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
+                if pd.isna(ltp_val) or pd.isna(nav_val):
+                    st.warning("⚠️ Price data unavailable or invalid for this ETF.")
+                    st.stop()
                     st.markdown(f"""
                     <div style="
                         background: white;
