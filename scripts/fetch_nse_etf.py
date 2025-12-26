@@ -20,16 +20,17 @@ headers = {
 # ============================================================
 session = requests.Session()
 session.get("https://www.nseindia.com", headers=headers, timeout=10)
-
+print("Homepage cookies acquired")
 # ============================================================
 # FETCH ETF DATA
 # ============================================================
 response = session.get(NSE_API_URL, headers=headers, timeout=10)
+print("API status code:", response.status_code)
+print("API response content type:", response.headers.get("Content-Type"))
 response.raise_for_status()
-
 json_data = response.json()
 data = json_data.get("data", [])
-
+print("Number of records received:", len(data))
 if not data:
     raise RuntimeError("NSE ETF API returned empty data")
 
