@@ -677,6 +677,10 @@ if selected_etf:
             # FIXED: Get the ticker from the 'symbol' column in the master file
             ticker = str(row.get("symbol", "")).strip().upper()
             price_row = df_price[df_price["symbol"] == ticker]
+            st.write("DEBUG ticker from master:", ticker)
+            st.write("DEBUG unique symbols in price file (sample):", df_price["symbol"].unique()[:10])
+            st.write("DEBUG price file columns:", df_price.columns.tolist())
+
 
             if not price_row.empty:
                 # Initialize session state for price visibility
