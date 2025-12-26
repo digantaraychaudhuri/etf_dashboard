@@ -653,7 +653,7 @@ if selected_etf:
         PRICE_FILE="data/nse_etf_prices.csv"
         if os.path.exists(PRICE_FILE):
             df_price = pd.read_csv(PRICE_FILE)
-            df_price["date"] = pd.to_datetime(df_price["date"])
+            df_price["date"] = pd.to_datetime(df_price["date"], errors="coerce")
             latest_price_date = df_price["date"].max()
             df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
 
