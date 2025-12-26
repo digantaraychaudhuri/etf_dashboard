@@ -22,15 +22,19 @@ st.markdown("""
     overflow: hidden;
     height: 45px;
     position: relative;
+    background: linear-gradient(90deg, #FF6B6B 0%, #FFD93D 50%, #6BCF7F 100%);
+    border-radius: 8px;
+    margin-bottom: 20px;
 }
 .scrolling-text {
     position: absolute;
     white-space: nowrap;
     font-family: "Comic Sans MS";
-    font-size: 30px;
+    font-size: 28px;
     font-weight: bold;
-    color: red;
-    animation: scroll-left 12s linear infinite;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    animation: scroll-left 15s linear infinite;
 }
 @keyframes scroll-left {
     0% { transform: translateX(100%); }
@@ -40,7 +44,7 @@ st.markdown("""
 
 <div class="scrolling-container">
     <div class="scrolling-text">
-        WORK IN PROGRESS THANK YOU FOR YOUR PATIENCE
+        ✨ WORK IN PROGRESS - THANK YOU FOR YOUR PATIENCE ✨
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -51,26 +55,30 @@ st.markdown("""
 st.markdown("""
 <div style="
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 30px;
-    border-radius: 10px;
+    padding: 35px;
+    border-radius: 15px;
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
 ">
-    <h1 style="color: white; margin: 0;">📊 India ETF Tracker</h1>
+    <h1 style="color: white; margin: 0; font-size: 42px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+        📊 Indian ETF Tracker
+    </h1>
 </div>
 """, unsafe_allow_html=True)
 
-# Black info message
+# Info message with enhanced styling
 st.markdown("""
 <div style="
-    background-color: #f0f0f0;
-    padding: 12px;
-    border-radius: 8px;
-    border-left: 5px solid #000000;
-    margin-bottom: 20px;
+    background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 6px solid #FF6F00;
+    margin-bottom: 25px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
 ">
-    <p style="color: #000000; margin: 0; font-weight: 600; font-size: 15px;">
-        ℹ️ Detailed holding available for selected representative ETFs only
+    <p style="color: #E65100; margin: 0; font-weight: 700; font-size: 16px;">
+        ℹ️ Detailed holdings available for selected representative ETFs only
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -90,6 +98,23 @@ st.markdown("""
 html, body, [class*="css"] {
     font-family: "Comic Sans MS", "Comic Sans", cursive !important;
 }
+
+/* Enhanced button styling */
+.stButton>button {
+    background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+    color: white;
+    font-weight: bold;
+    border-radius: 10px;
+    padding: 12px 24px;
+    border: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.stButton>button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -108,12 +133,11 @@ df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
 
 # ============================================================
-# LOAD HOLDINGS DATA - SPECIAL HANDLING FOR MULTIPLE GROUPS
+# LOAD HOLDINGS DATA
 # ============================================================
 holdings_dict = {}
 
 if os.path.exists(HOLDINGS_FILE):
-    # Read the raw CSV file
     with open(HOLDINGS_FILE, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
@@ -123,14 +147,10 @@ if os.path.exists(HOLDINGS_FILE):
     for line in lines:
         line = line.strip()
 
-        # Skip empty lines
         if not line or line == ',,,,,,,,,,,,,':
-            # If we have accumulated data, process it
             if current_header and current_data:
                 try:
-                    # Create DataFrame from accumulated data
                     temp_df = pd.DataFrame(current_data)
-                    # Store each ETF's data in the dictionary
                     for _, row in temp_df.iterrows():
                         etf_name = row.get('ETF', '').strip()
                         if etf_name and etf_name != 'ETF':
@@ -138,17 +158,13 @@ if os.path.exists(HOLDINGS_FILE):
                 except Exception as e:
                     pass
 
-                # Reset for next group
                 current_header = None
                 current_data = []
             continue
 
-        # Split the line
         parts = [p.strip() for p in line.split(',')]
 
-        # Check if this is a header line (starts with "ETF")
         if parts[0] == 'ETF':
-            # Process previous group if exists
             if current_header and current_data:
                 try:
                     temp_df = pd.DataFrame(current_data)
@@ -159,18 +175,15 @@ if os.path.exists(HOLDINGS_FILE):
                 except Exception as e:
                     pass
 
-            # Start new group
             current_header = parts
             current_data = []
-        elif current_header and parts[0]:  # Data row (has ETF name)
-            # Create row dictionary
+        elif current_header and parts[0]:
             row_dict = {}
             for i, col_name in enumerate(current_header):
                 if i < len(parts):
                     row_dict[col_name] = parts[i]
             current_data.append(row_dict)
 
-    # Process last group
     if current_header and current_data:
         try:
             temp_df = pd.DataFrame(current_data)
@@ -202,7 +215,7 @@ df["_text"] = (
 )
 
 # ============================================================
-# ASSET MAP
+# ASSET MAP & CATEGORIES
 # ============================================================
 ASSET_MAP = {
     "EQUITY": r"\bequity\b",
@@ -211,9 +224,6 @@ ASSET_MAP = {
     "COMMODITIES": r"commodity|gold|silver"
 }
 
-# ============================================================
-# BROADER CATEGORIES - EXCLUDE FACTOR INDICES
-# ============================================================
 BROADER = {
     "Nifty 50": r"nifty\s*50\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility|shariah))",
     "BSE Sensex": r"\bsensex\b(?!\s*next)(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
@@ -236,9 +246,6 @@ BROADER = {
     "Nifty Smallcap 100": r"smallcap\s*100\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))"
 }
 
-# ============================================================
-# SECTORAL
-# ============================================================
 SECTORAL = {
     "BANK": r"\bbank\b",
     "FINANCIAL SERVICES": r"financial",
@@ -257,36 +264,34 @@ SECTORAL = {
     "PHARMA": r"pharma"
 }
 
-# ============================================================
-# THEMATIC
-# ============================================================
+
 THEMATIC = {
-    "BHARAT 22": r"bharat.*22",
-    "Capital Market": r"capital.*market(?!.*insurance)",
-    "Capital Market & Insurance": r"capital.*market.*insurance",
-    "Commodities": r"commodit",
-    "CPSE": r"\bcpse\b",
-    "Defence": r"defence|defense",
-    "Digital": r"digital",
-    "Energy": r"energy",
-    "ESG SECTOR LEADERS": r"esg",
-    "EV and New Age Automotive": r"ev|new.*age.*auto",
+    "PSE": r"\bpse\b(?!.*bank)",
     "India Cosumption": r"india.*consumption",
-    "India Infrastructure": r"india.*infrastructure",
-    "Infrastructure": r"infrastructure|infra",
+    "Capital Market & Insurance": r"capital.*market.*insurance",
+    "EV and New Age Automotive": r"\bev\b|new.*age.*auto",
+    "Defence": r"defence|defense",
     "Internet": r"internet",
-    "Manufacturing": r"manufacturing",
-    "MNC": r"\bmnc\b",
-    "New Age Consumtion": r"new.*age.*consum",
-    "PSE": r"\bpse\b",
     "Railways": r"railway",
-    "PSU": r"\bpsu\b",
-    "Tourism": r"tourism"
+    "PSU": r"\bpsu\b(?!.*bank)",
+    "Capital Market": r"capital.*market(?!.*insurance)",
+    "Commodities": r"commodit",
+    "Infrastructure": r"infrastructure(?!.*india)|infra(?!.*india)",
+    "BHARAT 22": r"bharat.*22",
+    "Metal": r"\bmetal\b",
+    "MNC": r"\bmnc\b",
+    "Energy": r"\benergy\b(?!.*new)",
+    "Manufacturing": r"manufacturing",
+    "New Age Consumtion": r"new.*age.*consum",
+    "ESG SECTOR LEADERS": r"\besg\b",
+    "Tourism": r"tourism",
+    "India Infrastructure": r"india.*infrastructure",
+    "Nifty 50 shariah": r"nifty.*50.*shariah",
+    "CPSE": r"\bcpse\b",
+    "PSU BANK": r"psu.*bank",
+    "Digital": r"digital"
 }
 
-# ============================================================
-# STRATEGIC - FIXED WITH NON-CAPTURING GROUPS
-# ============================================================
 STRATEGIC = {
     "Nifty 50 Factor Indices": r"nifty\s*50.*(?:equal\s*weight|value\s*20|shariah)",
     "Nifty 100 Factor Indices": r"nifty\s*100.*(?:quality\s*30|low\s*volatility\s*30|equal\s*weight)",
@@ -311,7 +316,17 @@ STRATEGIC = {
 # ============================================================
 # FILTER UI
 # ============================================================
-st.write("### 🔍 Filter ETFs")
+st.markdown("""
+<div style="
+    background: linear-gradient(135deg, #FFF9C4 0%, #FFF59D 100%);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+">
+    <h3 style="color: #F57F17; margin: 0 0 15px 0; text-align: center;">🔍 Filter ETFs</h3>
+</div>
+""", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 
@@ -344,7 +359,7 @@ if selected_asset == "EQUITY":
 
     sub_sub_cat = st.selectbox(
         f"Select {sub_cat}",
-        ["All"] + list(lookup.keys())
+        ["All"] + sorted(lookup.keys())
     )
 
 elif selected_asset == "DEBT":
@@ -392,84 +407,152 @@ if selected_asset == "DEBT" and sub_cat and sub_cat != "All":
 result = df.loc[mask].copy()
 
 # ============================================================
-# METRICS
+# METRICS - ENHANCED STYLING
 # ============================================================
-st.write("---")
-c1, c2 = st.columns(2)
-c1.metric("📊 Number of ETFs", result.shape[0])
-c2.metric("💰 Total AUM (₹ Crores)", f"₹ {result['aum'].sum(skipna=True):,.2f}")
-st.write("---")
+st.markdown("---")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #E1F5FE 0%, #81D4FA 100%);
+        padding: 25px;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    ">
+        <p style="margin: 0; font-size: 18px; color: #01579B; font-weight: bold;">📊 Number of ETFs</p>
+        <p style="margin: 10px 0 0 0; font-size: 36px; color: #0277BD; font-weight: bold;">{result.shape[0]}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #C8E6C9 0%, #66BB6A 100%);
+        padding: 25px;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    ">
+        <p style="margin: 0; font-size: 18px; color: #1B5E20; font-weight: bold;">💰 Total AUM</p>
+        <p style="margin: 10px 0 0 0; font-size: 36px; color: #2E7D32; font-weight: bold;">₹ {result['aum'].sum(skipna=True):,.2f} Cr</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("---")
 
 # ============================================================
 # ETF SELECTOR
 # ============================================================
 selected_etf = st.selectbox(
-    "Select an ETF to view details",
-    [""] + result["etf"].tolist()
+    "🎯 Select an ETF to view details",
+    [""] + sorted(result["etf"].dropna().unique().tolist())
 )
 
 # ============================================================
-# ETF CARD WITH HOLDINGS CHART
+# IMPROVED LAYOUT: ETF DETAILS + HOLDINGS + PRICE CARD
 # ============================================================
 if selected_etf:
     row = result[result["etf"] == selected_etf].iloc[0]
 
-    st.markdown("### 📄 ETF Details")
+    # Main container
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #FFFFFF 0%, #F5F5F5 100%);
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        margin-bottom: 25px;
+    ">
+        <h2 style="color: #4A235A; margin: 0 0 20px 0; text-align: center;">📄 ETF Details & Analysis</h2>
+    </div>
+    """, unsafe_allow_html=True)
 
-    left, right = st.columns([1, 1])
+    # TWO COLUMN LAYOUT: LEFT (Details + Holdings) | RIGHT (Price Card)
+    left_col, right_col = st.columns([2, 1])
 
-    with left:
-        # Display ETF details with colored labels
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>ETF Name:</span> <span style='color:#000000;'>{row.get('etf', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>AMC:</span> <span style='color:#000000;'>{row.get('amc', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Category:</span> <span style='color:#000000;'>{row.get('category', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Asset Class:</span> <span style='color:#000000;'>{row.get('asset_class', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Benchmark Index:</span> <span style='color:#000000;'>{row.get('benchmark_index', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Launch Date:</span> <span style='color:#000000;'>{row.get('launch_date', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>NSE Ticker:</span> <span style='color:#000000;'>{row.get('nse_ticker', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>BSE Ticker:</span> <span style='color:#000000;'>{row.get('bse_ticker', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>ISIN Code:</span> <span style='color:#000000;'>{row.get('isin_code', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>AUM (₹ Crores):</span> <span style='color:#000000;'>{row.get('aum', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Expense Ratio:</span> <span style='color:#000000;'>{row.get('expense_ratio', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Tracking Error:</span> <span style='color:#000000;'>{row.get('overall_tracking_error', '-')}</span></p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Tracking Difference:</span> <span style='color:#000000;'>{row.get('overall_tracking_difference', '-')}</span></p>", unsafe_allow_html=True)
+    with left_col:
+        # ETF DETAILS CARD
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #E8EAF6 0%, #C5CAE9 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        ">
+            <h3 style="color: #311B92; margin: 0 0 15px 0;">📊 Basic Information</h3>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # Official Website Link at bottom left
-        st.write("")
+        # Details in two columns
+        d1, d2 = st.columns(2)
+
+        with d1:
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>ETF Name:</span> <span style='color:#000000;'>{row.get('etf', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>AMC:</span> <span style='color:#000000;'>{row.get('amc', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Category:</span> <span style='color:#000000;'>{row.get('category', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Asset Class:</span> <span style='color:#000000;'>{row.get('asset_class', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Benchmark:</span> <span style='color:#000000;'>{row.get('benchmark_index', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Launch Date:</span> <span style='color:#000000;'>{row.get('launch_date', '-')}</span></p>", unsafe_allow_html=True)
+
+        with d2:
+            # FIXED: Changed from 'nse_ticker' to 'symbol' to match the new column name
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>NSE Ticker:</span> <span style='color:#000000;'>{row.get('symbol', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>BSE Ticker:</span> <span style='color:#000000;'>{row.get('bse_ticker', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>ISIN Code:</span> <span style='color:#000000;'>{row.get('isin_code', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>AUM (₹ Cr):</span> <span style='color:#000000;'>{row.get('aum', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Expense Ratio:</span> <span style='color:#000000;'>{row.get('expense_ratio', '-')}</span></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Tracking Error:</span> <span style='color:#000000;'>{row.get('overall_tracking_error', '-')}</span></p>", unsafe_allow_html=True)
+
+        # Official Website Link
         website = row.get("website_link", "")
         if isinstance(website, str) and website.strip():
             st.markdown(
                 f"""
-                <div style="background:#8B4513;padding:14px;border-radius:8px;text-align:center;margin-top:15px;">
+                <div style="
+                    background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+                    padding: 14px;
+                    border-radius: 10px;
+                    text-align: center;
+                    margin-top: 15px;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                ">
                     <a href="{website}" target="_blank"
-                       style="color:white;font-weight:bold;text-decoration:none;">
-                        🌐 Official Website
+                       style="color:white;font-weight:bold;text-decoration:none;font-size:16px;">
+                        🌐 Visit Official Website
                     </a>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-    # ============================================================
-    # TOP 10 HOLDINGS CHART - RIGHT SIDE (RED GRADIENT - HIGHEST AT TOP)
-    # ============================================================
-    with right:
+        # HOLDINGS CHART (BELOW DETAILS)
+        st.markdown("<br>", unsafe_allow_html=True)
+
         if selected_etf in holdings_dict:
-            st.markdown("### 📈 Top 10 Holdings")
+            st.markdown("""
+            <div style="
+                background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+                padding: 20px;
+                border-radius: 12px;
+                margin-bottom: 15px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            ">
+                <h3 style="color: #B71C1C; margin: 0;">📈 Top 10 Holdings</h3>
+            </div>
+            """, unsafe_allow_html=True)
 
             etf_data = holdings_dict[selected_etf]
-
-            # Extract holdings (skip ETF, ISIN CODE, NSE TICKER, Total)
             holdings_data = []
             skip_keys = ['ETF', 'ISIN CODE', 'NSE TICKER', 'Total']
 
             for key, value in etf_data.items():
                 if key not in skip_keys and value and value.strip():
                     try:
-                        # Clean company name
                         company_name = key.replace('Ltd.', '').replace('Ltd,', '').replace('Ltd', '').replace('Ordinary Shares', '').replace('Class A', '').replace('Class B', '').replace('Class H', '').strip()
                         weight = float(value)
-
                         holdings_data.append({
                             'Company': company_name,
                             'Weight': weight
@@ -478,26 +561,22 @@ if selected_etf:
                         pass
 
             if holdings_data:
-                # Create DataFrame and sort by weight (DESCENDING - highest at top)
                 holdings_chart_df = pd.DataFrame(holdings_data)
                 holdings_chart_df = holdings_chart_df.sort_values('Weight', ascending=False)
 
-                # Create red gradient color scale - light to dark red
                 color_scale = alt.Scale(
                     domain=[holdings_chart_df['Weight'].min(), holdings_chart_df['Weight'].max()],
                     range=['#FFCDD2', '#8B0000']
                 )
 
-                # Create the base chart layer
                 base = alt.Chart(holdings_chart_df).encode(
-                    y=alt.Y('Company:N', 
+                    y=alt.Y('Company:N',
                            sort=alt.EncodingSortField(field='Weight', order='descending'),
-                           axis=alt.Axis(title='', labelFontSize=12, labelFontWeight='bold')),
-                    x=alt.X('Weight:Q', 
-                           axis=alt.Axis(title='Weight (%)', titleFontSize=14, labelFontSize=11))
+                           axis=alt.Axis(title='Stock/Issuer', labelFontSize=11, labelFontWeight='bold')),
+                    x=alt.X('Weight:Q',
+                           axis=alt.Axis(title='Weight (%) to NAV', titleFontSize=13, labelFontSize=10))
                 )
 
-                # Bar layer
                 bars = base.mark_bar().encode(
                     color=alt.Color('Weight:Q', scale=color_scale, legend=None),
                     tooltip=[
@@ -506,20 +585,18 @@ if selected_etf:
                     ]
                 )
 
-                # Text layer
                 text = base.mark_text(
                     align='left',
                     baseline='middle',
                     dx=5,
-                    fontSize=12,
+                    fontSize=11,
                     fontWeight='bold'
                 ).encode(
                     text=alt.Text('Weight:Q', format='.2f')
                 )
 
-                # Layer the charts
                 final_chart = alt.layer(bars, text).properties(
-                    height=550
+                    height=500
                 ).configure_view(
                     strokeWidth=0
                 ).configure_axis(
@@ -528,7 +605,6 @@ if selected_etf:
 
                 st.altair_chart(final_chart, width='stretch')
 
-                # Display Total contribution with enhanced styling (red gradient)
                 total_value = etf_data.get('Total', '')
                 if total_value and total_value.strip():
                     try:
@@ -537,14 +613,14 @@ if selected_etf:
                             f"""
                             <div style="
                                 background: linear-gradient(135deg, #F44336 0%, #B71C1C 100%);
-                                padding: 18px;
+                                padding: 16px;
                                 border-radius: 10px;
                                 text-align: center;
                                 margin-top: 15px;
                                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                             ">
-                                <p style="color: white; font-size: 18px; margin: 0; font-weight: bold; font-family: 'Comic Sans MS';">
-                                    💎 Total contribution from top 10 holdings: {total_pct}%
+                                <p style="color: white; font-size: 17px; margin: 0; font-weight: bold;">
+                                    💎 Total Top 10 Holdings: {total_pct}%
                                 </p>
                             </div>
                             """,
@@ -555,16 +631,152 @@ if selected_etf:
             else:
                 st.info("📊 Holdings data available but could not be parsed.")
         else:
-            st.info("📊 Holdings data not available for this ETF in the dataset.")
+            st.info("📊 Holdings data not available for this ETF.")
+
+    # RIGHT COLUMN - PRICE CARD
+    with right_col:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #E3F2FD 0%, #90CAF9 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        ">
+            <h3 style="color: #0D47A1; margin: 0;">💹 Price Information</h3>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Load price data
+        PRICE_FILE="data/nse_etf_prices.csv"
+        if os.path.exists("PRICE_FILE"):
+            df_price = pd.read_csv("PRICE_FILE")
+            df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
+
+            # FIXED: Price file uses 'symbol' column, standardize it
+            if 'symbol' in df_price.columns:
+                df_price["symbol"] = df_price["symbol"].astype(str).str.strip()
+            elif 'nse_ticker' in df_price.columns:
+                df_price["symbol"] = df_price["nse_ticker"].astype(str).str.strip()
+
+            # FIXED: Get the ticker from the 'symbol' column in the master file
+            ticker = row.get("symbol", "")
+            price_row = df_price[df_price["symbol"] == ticker]
+
+            if not price_row.empty:
+                # Initialize session state for price visibility
+                if f'show_price_{ticker}' not in st.session_state:
+                    st.session_state[f'show_price_{ticker}'] = False
+
+                # Toggle button
+                if st.button("📊 View LTP vs NAV", key=f"btn_{ticker}"):
+                    st.session_state[f'show_price_{ticker}'] = not st.session_state[f'show_price_{ticker}']
+
+                # Show price chart if toggled
+                if st.session_state[f'show_price_{ticker}']:
+                    ltp_val = price_row.iloc[0]["ltp"]
+                    nav_val = price_row.iloc[0]["nav"]
+
+                    st.markdown(f"""
+                    <div style="
+                        background: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        margin-top: 15px;
+                        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+                    ">
+                        <p style="margin: 8px 0; font-size: 16px;">
+                            <span style="color: #1976D2; font-weight: bold;">LTP:</span>
+                            <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {ltp_val}</span>
+                        </p>
+                        <p style="margin: 8px 0; font-size: 16px;">
+                            <span style="color: #388E3C; font-weight: bold;">NAV:</span>
+                            <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {nav_val}</span>
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Bar chart
+                    price_df = pd.DataFrame({
+                        "Metric": ["LTP", "NAV"],
+                        "Value": [ltp_val, nav_val]
+                    })
+
+                    price_chart = alt.Chart(price_df).mark_bar(
+                        size=60
+                    ).encode(
+                        x=alt.X("Metric:N", axis=alt.Axis(labelFontWeight="bold", labelFontSize=14)),
+                        y=alt.Y("Value:Q", title="₹ Value"),
+                        color=alt.Color("Metric:N", scale=alt.Scale(range=["#42A5F5", "#66BB6A"]), legend=None),
+                        tooltip=["Metric", alt.Tooltip("Value:Q", format=".2f")]
+                    ).properties(height=300)
+
+                    st.altair_chart(price_chart, width='stretch')
+
+                    # Close button
+                    if st.button("❌ Close", key=f"close_{ticker}"):
+                        st.session_state[f'show_price_{ticker}'] = False
+                        st.rerun()
+            else:
+                st.warning("⚠️ Price data not available for this ticker.")
+        else:
+            st.warning("⚠️ Price data file not found.")
+
+# ============================================================
+# AI ASSISTANT SECTION - ENHANCED
+# ============================================================
+st.markdown("---")
+st.markdown("""
+<div style="
+    background: linear-gradient(135deg, #FFF3E0 0%, #FFB74D 100%);
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    margin: 30px 0;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+">
+    <h2 style="color: #E65100; margin: 0 0 15px 0;">🤖 AI-Powered ETF Assistant</h2>
+    <p style="color: #BF360C; font-size: 16px; margin: 0 0 20px 0;">
+        Get intelligent insights and analysis on Indian ETFs
+    </p>
+    <a href="https://chatgpt.com/g/g-6942d299b4648191a8acc98e68636cb9-indiaetf" target="_blank"
+       style="
+           display: inline-block;
+           background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+           color: white;
+           font-weight: bold;
+           text-decoration: none;
+           font-size: 18px;
+           padding: 15px 40px;
+           border-radius: 10px;
+           box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+           transition: all 0.3s ease;
+       "
+       onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 6px 12px rgba(0,0,0,0.3)';"
+       onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2)';">
+        🚀 Launch AI Assistant
+    </a>
+</div>
+""", unsafe_allow_html=True)
 
 # ============================================================
 # FOOTER
 # ============================================================
 st.markdown("---")
 st.markdown("""
-<div style="text-align: center; padding: 10px;">
-    <p style="font-size: 14px; color: #4A235A; font-weight: bold;">
-        Conceptualized by Diganta Raychaudhuri
+<div style="
+    background: linear-gradient(135deg, #D1C4E9 0%, #B39DDB 100%);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+">
+    <p style="font-size: 16px; color: #4A148C; font-weight: bold; margin: 0;">
+        ✨ Conceptualized by Diganta Raychaudhuri ✨
+    </p>
+    <p style="font-size: 13px; color: #6A1B9A; margin: 5px 0 0 0;">
+        let's invest in passives, actively
     </p>
 </div>
 """, unsafe_allow_html=True)
