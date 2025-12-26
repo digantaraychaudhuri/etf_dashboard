@@ -794,3 +794,41 @@ st.markdown("""
     Data taken from NSE, AMFI and AMC websites.
 </div>
 """, unsafe_allow_html=True)
+# ============================================================
+# LEGAL + COPYRIGHT + LAST UPDATED
+# ============================================================
+
+st.markdown("""
+<div style="
+    font-size: 11px;
+    color: #444;
+    text-align: left;
+    margin-top: 10px;
+    line-height: 1.5;
+">
+    <strong>Disclaimer:</strong><br>
+    This website is for informational and educational purposes only.
+    It does not constitute investment advice.
+    Please consult a registered financial advisor before making investment decisions.
+</div>
+""", unsafe_allow_html=True)
+st.markdown(f"""
+<div style="
+    font-size: 11px;
+    color: #444;
+    text-align: left;
+    margin-top: 6px;
+">
+    © {latest_price_date.year} Diganta Raychaudhuri. All rights reserved.
+</div>
+""", unsafe_allow_html=True)
+st.markdown(f"""
+<div style="
+    font-size: 11px;
+    color: #444;
+    text-align: left;
+    margin-top: 4px;
+">
+    Last updated: {latest_price_date.strftime('%d %b %Y')} (EOD, NSE)
+</div>
+""", unsafe_allow_html=True)
