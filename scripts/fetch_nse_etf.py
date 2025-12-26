@@ -3,6 +3,9 @@ import pandas as pd
 from datetime import date
 import os
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 # ============================================================
 # CONFIG
 # ============================================================
@@ -19,15 +22,34 @@ headers = {
 # CREATE SESSION (NSE REQUIRES COOKIES)
 # ============================================================
 session = requests.Session()
-session.get("https://www.nseindia.com", headers=headers, timeout=10)
+
+retry_strategy = Retry(
+    total=3,
+    backoff_factor=5,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["GET"]
+)
+
+adapter = HTTPAdapter(max_retries=retry_strategy)
+session.mount("https://", adapter)
+
+# Hit homepage to set cookies
+session.get("https://www.nseindia.com", headers=headers, timeout=30)
 print("Homepage cookies acquired")
 # ============================================================
 # FETCH ETF DATA
 # ============================================================
-response = session.get(NSE_API_URL, headers=headers, timeout=10)
-print("API status code:", response.status_code)
-print("API response content type:", response.headers.get("Content-Type"))
-response.raise_for_status()
+try:
+    response = session.get(NSE_API_URL, headers=headers, timeout=40)
+    print("API status code:", response.status_code)
+    print("API response content type:", response.headers.get("Content-Type"))
+    response.raise_for_status()
+except Exception as e:
+    print("NSE API failed or timed out:", e)
+    print("Skipping update for today to avoid failure")
+    exit(0)
+
+
 json_data = response.json()
 data = json_data.get("data", [])
 print("Number of records received:", len(data))
