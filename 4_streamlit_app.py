@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import altair as alt
+latest_price_date = None
 
 # ============================================================
 # PAGE CONFIG
@@ -812,23 +813,25 @@ st.markdown("""
     Please consult a registered financial advisor before making investment decisions.
 </div>
 """, unsafe_allow_html=True)
-st.markdown(f"""
-<div style="
-    font-size: 11px;
-    color: #444;
-    text-align: left;
-    margin-top: 6px;
-">
-    © {latest_price_date.year} Diganta Raychaudhuri. All rights reserved.
-</div>
-""", unsafe_allow_html=True)
-st.markdown(f"""
-<div style="
-    font-size: 11px;
-    color: #444;
-    text-align: left;
-    margin-top: 4px;
-">
-    Last updated: {latest_price_date.strftime('%d %b %Y')} (EOD, NSE)
-</div>
-""", unsafe_allow_html=True)
+if latest_price_date is not None:
+    st.markdown(f"""
+    <div style="
+        font-size: 11px;
+        color: #444;
+        text-align: left;
+        margin-top: 6px;
+    ">
+        © {latest_price_date.year} Diganta Raychaudhuri. All rights reserved.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div style="
+        font-size: 11px;
+        color: #444;
+        text-align: left;
+        margin-top: 4px;
+    ">
+        Last updated: {latest_price_date.strftime('%d %b %Y')} (EOD, NSE)
+    </div>
+    """, unsafe_allow_html=True)
