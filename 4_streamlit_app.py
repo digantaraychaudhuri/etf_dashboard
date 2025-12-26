@@ -650,8 +650,10 @@ if selected_etf:
 
         # Load price data
         PRICE_FILE="data/nse_etf_prices.csv"
-        if os.path.exists("PRICE_FILE"):
-            df_price = pd.read_csv("PRICE_FILE")
+        if os.path.exists(PRICE_FILE):
+            df_price = pd.read_csv(PRICE_FILE)
+            df_price["date"] = pd.to_datetime(df_price["date"])
+            latest_price_date = df_price["date"].max()
             df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
 
             # FIXED: Price file uses 'symbol' column, standardize it
@@ -713,6 +715,7 @@ if selected_etf:
                     ).properties(height=300)
 
                     st.altair_chart(price_chart, width='stretch')
+                    st.caption(f"Data as of: {latest_price_date.strftime('%d %b %Y')}")
 
                     # Close button
                     if st.button("❌ Close", key=f"close_{ticker}"):
@@ -778,5 +781,16 @@ st.markdown("""
     <p style="font-size: 13px; color: #6A1B9A; margin: 5px 0 0 0;">
         let's invest in passives, actively
     </p>
+</div>
+""", unsafe_allow_html=True)
+st.markdown("""
+<div style="
+    font-size: 11px;
+    color: #555;
+    text-align: left;
+    margin-top: 8px;
+    padding-left: 6px;
+">
+    Data taken from NSE, AMFI and AMC websites.
 </div>
 """, unsafe_allow_html=True)
