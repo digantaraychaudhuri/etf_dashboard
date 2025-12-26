@@ -1,1 +1,17 @@
+name: Daily NSE ETF Update (Test)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - run: python scripts/fetch_nse_etf.py
 
