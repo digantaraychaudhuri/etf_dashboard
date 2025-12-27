@@ -690,7 +690,7 @@ if selected_etf:
 
         # Use globally loaded df_price
         if not df_price.empty:
-            # FIXED: Get the ticker from the 'symbol' column in the master file
+            # Get the ticker from the 'symbol' column in the master file
             ticker = str(row.get("symbol", "")).strip().upper()
             price_row = df_price[df_price["symbol"] == ticker]
             
@@ -707,16 +707,6 @@ if selected_etf:
                 if st.session_state[f'show_price_{ticker}']:
                     ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
                     nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
-                    # ============================================================
-                    # DEBUG BLOCK (INSERT THIS HERE)
-                    # ============================================================
-                    st.markdown("### 🐞 Debugging Info")
-                    st.write("1. Columns found in Price File:", df_price.columns.tolist())
-                    st.write("2. Raw Date Value found:", price_row.iloc[0]["date"])
-                    st.write("3. Is it valid date?", pd.notna(price_row.iloc[0]["date"]))
-                    st.markdown("---")
-                    # ============
-
 
                     if pd.isna(ltp_val) or pd.isna(nav_val):
                         st.warning("⚠️ Price data unavailable or invalid for this ETF.")
@@ -755,11 +745,16 @@ if selected_etf:
                             tooltip=["Metric", alt.Tooltip("Value:Q", format=".2f")]
                         ).properties(height=300)
 
-                        st.altair_chart(price_chart, width='stretch')     
+                        st.altair_chart(price_chart, width='stretch')
+
                         # Close button
                         if st.button("❌ Close", key=f"close_{ticker}"):
                             st.session_state[f'show_price_{ticker}'] = False
                             st.rerun()
+            else:
+                st.warning("⚠️ Price data not available for this ticker.")
+        else:
+            st.warning("⚠️ Price data file not found.")
 # AI ASSISTANT SECTION - ENHANCED
 # ============================================================
 st.markdown("---")
