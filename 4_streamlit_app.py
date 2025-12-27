@@ -757,22 +757,33 @@ if selected_etf:
 
                         st.altair_chart(price_chart, width='stretch')
 
+                        # ===========================================================
+                        # SMART DATE PARSER (Includes Debug Output)
                         # ============================================================
-                        # ADD/REPLACE THIS PART TO SHOW "UPDATED ON"
-                        # ============================================================
-                                                # ============================================================
-                        # UPDATED DATE DISPLAY (Local Row Fallback)
-                        # ============================================================
-                        # Try to get the date from the specific row for this ETF
-                        current_etf_date = price_row.iloc[0].get("date")
+                        # Get the raw data directly from the row
+                        raw_date = price_row.iloc[0]["date"]
                         
-                        if pd.notna(current_etf_date):
-                            date_str = current_etf_date.strftime('%d %b %Y')
-                            st.markdown(f"<p style='text-align: center; color: #666; font-size: 13px; margin-top: 10px;'>Updated on {date_str}</p>", unsafe_allow_html=True)
+                        # 1. DEBUG: Show exactly what the computer sees (e.g. "25-10-2023" or "NaT")
+                        st.markdown(f"<small style='color: gray; display: block; text-align: center; margin-bottom: 5px;'>Raw Data: {raw_date}</small>", unsafe_allow_html=True)
+                        
+                        # 2. Try to fix it
+                        final_date = None
+                        
+                        if pd.notna(raw_date):
+                            try:
+                                # This tries to guess the format automatically (works for slashes, dashes, text, etc)
+                                final_date = pd.to_datetime(raw_date, errors='coerce')
+                            except:
+                                pass
+                        
+                        # 3. Display Result
+                        if pd.notna(final_date):
+                            date_str = final_date.strftime('%d %b %Y')
+                            st.markdown(f"<p style='text-align: center; color: #666; font-size: 13px; margin-top: 0px;'>Updated on {date_str}</p>", unsafe_allow_html=True)
                         else:
-                            # This message will appear if the date is missing for this specific ETF too
-                            st.markdown(f"<p style='text-align: center; color: #D32F2F; font-size: 13px; margin-top: 10px;'>⚠️ Date Data Missing in CSV</p>", unsafe_allow_html=True)
-                        
+                            # If this shows, look at the "Raw Data" line above to see what is wrong
+                            st.markdown(f"<p style='text-align: center; color: #D32F2F; font-size: 13px; margin-top: 0px;'>⚠️ Invalid Date Format</p>", unsafe_allow_html=True)
+                        # ============================================================
 # ============================================================
 # AI ASSISTANT SECTION - ENHANCED
 # ============================================================
