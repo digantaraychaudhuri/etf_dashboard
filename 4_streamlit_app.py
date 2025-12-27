@@ -756,8 +756,6 @@ if selected_etf:
                         ).properties(height=300)
 
                         st.altair_chart(price_chart, width='stretch')
-
-                                                # ============================================================
                         # ROBUST DATE PARSER (Day-Month-Year Support)
                         # ============================================================
                         # Get raw data and ensure it's a clean string
@@ -785,7 +783,6 @@ if selected_etf:
                         else:
                             # If this persists, please type the "Raw Data" text here so I can see it
                             st.markdown(f"<p style='text-align: center; color: #D32F2F; font-size: 13px; margin-top: 0px;'>⚠️ Date Unreadable. Please type 'Raw Data' value here.</p>", unsafe_allow_html=True)
-                        # ============================================================
 # ============================================================
 # AI ASSISTANT SECTION - ENHANCED
 # ============================================================
