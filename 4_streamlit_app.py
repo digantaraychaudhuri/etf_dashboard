@@ -97,6 +97,9 @@ st.markdown("""
     <h1 style="color: white; margin: 0; font-size: 42px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
         📊 Indian ETF Tracker
     </h1>
+    <p style="color: white; margin: 10px 0 0 0; font-size: 18px; text-align: center; font-style: italic;">
+        let's invest in passives, actively
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -805,9 +808,6 @@ st.markdown("""
 ">
     <p style="font-size: 16px; color: #4A148C; font-weight: bold; margin: 0;">
         ✨ Conceptualized by Diganta Raychaudhuri ✨
-    </p>
-    <p style="font-size: 13px; color: #6A1B9A; margin: 5px 0 0 0;">
-        let's invest in passives, actively
     </p>
 </div>
 """, unsafe_allow_html=True)
