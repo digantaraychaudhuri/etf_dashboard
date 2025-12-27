@@ -750,22 +750,19 @@ if selected_etf:
                         # ============================================================
                         # ADD/REPLACE THIS PART TO SHOW "UPDATED ON"
                         # ============================================================
-                        if pd.notna(latest_price_date):
-                            date_str = latest_price_date.strftime('%d %b %Y')
+                                                # ============================================================
+                        # UPDATED DATE DISPLAY (Local Row Fallback)
+                        # ============================================================
+                        # Try to get the date from the specific row for this ETF
+                        current_etf_date = price_row.iloc[0].get("date")
+                        
+                        if pd.notna(current_etf_date):
+                            date_str = current_etf_date.strftime('%d %b %Y')
                             st.markdown(f"<p style='text-align: center; color: #666; font-size: 13px; margin-top: 10px;'>Updated on {date_str}</p>", unsafe_allow_html=True)
                         else:
-                            # This message will appear if the date data is missing or invalid
-                            st.markdown(f"<p style='text-align: center; color: #D32F2F; font-size: 13px; margin-top: 10px;'>⚠️ Date Data Unavailable</p>", unsafe_allow_html=True)
-
-                        # Close button
-                        if st.button("❌ Close", key=f"close_{ticker}"):
-                            st.session_state[f'show_price_{ticker}'] = False
-                            st.rerun()
-            else:
-                st.warning("⚠️ Price data not available for this ticker.")
-        else:
-            st.warning("⚠️ Price data file not found.")
-
+                            # This message will appear if the date is missing for this specific ETF too
+                            st.markdown(f"<p style='text-align: center; color: #D32F2F; font-size: 13px; margin-top: 10px;'>⚠️ Date Data Missing in CSV</p>", unsafe_allow_html=True)
+                        
 # ============================================================
 # AI ASSISTANT SECTION - ENHANCED
 # ============================================================
