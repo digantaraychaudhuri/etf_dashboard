@@ -757,22 +757,24 @@ if selected_etf:
 
                         st.altair_chart(price_chart, width='stretch')
 
-                        # ===========================================================
-                        # SMART DATE PARSER (Includes Debug Output)
+                                                # ============================================================
+                        # ROBUST DATE PARSER (Day-Month-Year Support)
                         # ============================================================
-                        # Get the raw data directly from the row
+                        # Get raw data and ensure it's a clean string
                         raw_date = price_row.iloc[0]["date"]
                         
-                        # 1. DEBUG: Show exactly what the computer sees (e.g. "25-10-2023" or "NaT")
+                        # DEBUG: Show exactly what is seen
                         st.markdown(f"<small style='color: gray; display: block; text-align: center; margin-bottom: 5px;'>Raw Data: {raw_date}</small>", unsafe_allow_html=True)
                         
-                        # 2. Try to fix it
                         final_date = None
                         
                         if pd.notna(raw_date):
+                            # Convert to string and strip whitespace/newlines
+                            clean_date_str = str(raw_date).strip()
+                            
                             try:
-                                # This tries to guess the format automatically (works for slashes, dashes, text, etc)
-                                final_date = pd.to_datetime(raw_date, errors='coerce')
+                                # Force 'dayfirst=True' so 26-12-2025 is read as 26th Dec, not invalid 12th Month
+                                final_date = pd.to_datetime(clean_date_str, dayfirst=True, errors='coerce')
                             except:
                                 pass
                         
@@ -781,8 +783,8 @@ if selected_etf:
                             date_str = final_date.strftime('%d %b %Y')
                             st.markdown(f"<p style='text-align: center; color: #666; font-size: 13px; margin-top: 0px;'>Updated on {date_str}</p>", unsafe_allow_html=True)
                         else:
-                            # If this shows, look at the "Raw Data" line above to see what is wrong
-                            st.markdown(f"<p style='text-align: center; color: #D32F2F; font-size: 13px; margin-top: 0px;'>⚠️ Invalid Date Format</p>", unsafe_allow_html=True)
+                            # If this persists, please type the "Raw Data" text here so I can see it
+                            st.markdown(f"<p style='text-align: center; color: #D32F2F; font-size: 13px; margin-top: 0px;'>⚠️ Date Unreadable. Please type 'Raw Data' value here.</p>", unsafe_allow_html=True)
                         # ============================================================
 # ============================================================
 # AI ASSISTANT SECTION - ENHANCED
