@@ -650,12 +650,22 @@ if selected_etf:
         """, unsafe_allow_html=True)
 
         # Load price data
-        PRICE_FILE="data/nse_etf_prices.csv"
-        if os.path.exists(PRICE_FILE):
-            df_price = pd.read_csv(PRICE_FILE)
-            df_price["date"] = pd.to_datetime(df_price["date"], errors="coerce")
-            latest_price_date = df_price["date"].max()
-            df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
+            PRICE_FILE="data/nse_etf_prices.csv"
+            if os.path.exists(PRICE_FILE):
+                df_price = pd.read_csv(PRICE_FILE)
+    
+                # 1️⃣ Normalize column names FIRST
+                df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
+    
+                # 2️⃣ Parse date with correct format (dd-mm-yyyy)
+                df_price["date"] = pd.to_datetime(
+                df_price["date"],
+                format="%d-%m-%Y",
+                errors="coerce"
+                )
+# 3️⃣ Now safely compute latest date
+latest_price_date = df_price["date"].max()
+
 
         # FIXED: Price file uses 'symbol' column, standardize it
         if 'symbol' in df_price.columns:
