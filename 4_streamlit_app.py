@@ -210,7 +210,6 @@ df["_text"] = (
     df["category"].astype(str).str.lower() + " " +
     df["benchmark_index"].astype(str).str.lower()
 )
-
 # ============================================================
 # LOAD PRICE DATA (Global for footer)
 # ============================================================
@@ -220,18 +219,25 @@ latest_price_date = None
 
 if os.path.exists(PRICE_FILE):
     df_price = pd.read_csv(PRICE_FILE)
-    # 1️⃣ Normalize column names FIRST
+    # Normalize column names
     df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
-    # 2️⃣ Parse date with correct format (dd-mm-yyyy)
-    df_price["date"] = pd.to_datetime(
-        df_price["date"],
-        format="%d-%m-%Y",
-        errors="coerce"
-    )
-    # 3️⃣ Now safely compute latest date
-    latest_price_date = df_price["date"].max()
+    
+    # Check if 'date' column exists before processing
+    if 'date' in df_price.columns:
+        df_price["date"] = pd.to_datetime(
+            df_price["date"],
+            format="%d-%m-%Y",
+            errors="coerce"
+        )
+        # Only calculate max if the dataframe is not empty
+        if not df_price.empty:
+            latest_price_date = df_price["date"].max()
+            
+            # If max() returns NaT (Not a Time), convert it back to None to avoid formatting errors later
+            if pd.isna(latest_price_date):
+                latest_price_date = None
 
-    # 4️⃣ Standardize Symbol Column
+    # Standardize Symbol Column
     if 'symbol' in df_price.columns:
         df_price["symbol"] = (
             df_price["symbol"]
@@ -665,7 +671,7 @@ if selected_etf:
         else:
             st.info("📊 Holdings data not available for this ETF.")
 
-    # RIGHT COLUMN - PRICE CARD
+       # RIGHT COLUMN - PRICE CARD
     with right_col:
         st.markdown("""
         <div style="
@@ -686,11 +692,6 @@ if selected_etf:
             ticker = str(row.get("symbol", "")).strip().upper()
             price_row = df_price[df_price["symbol"] == ticker]
             
-            # DEBUG (Optional, commented out for production feel)
-            # st.write("DEBUG ticker from master:", ticker)
-            # st.write("DEBUG unique symbols in price file (sample):", df_price["symbol"].unique()[:10])
-            # st.write("DEBUG price file columns:", df_price.columns.tolist())
-
             if not price_row.empty:
                 # Initialize session state for price visibility
                 if f'show_price_{ticker}' not in st.session_state:
@@ -744,7 +745,11 @@ if selected_etf:
 
                         st.altair_chart(price_chart, width='stretch')
                         
-                        if latest_price_date:
+                        # ============================================================
+                        # FIX IS HERE (Line 748 context)
+                        # ============================================================
+                        # We use pd.notna() to ensure latest_price_date is valid before formatting
+                        if pd.notna(latest_price_date):
                             st.caption(f"Data as of: {latest_price_date.strftime('%d %b %Y')}")
 
                         # Close button
@@ -755,6 +760,7 @@ if selected_etf:
                 st.warning("⚠️ Price data not available for this ticker.")
         else:
             st.warning("⚠️ Price data file not found.")
+   
 
 # ============================================================
 # AI ASSISTANT SECTION - ENHANCED
