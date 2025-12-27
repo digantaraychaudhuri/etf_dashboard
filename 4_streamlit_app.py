@@ -707,9 +707,9 @@ if selected_etf:
                     ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
                     nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
 
-                 if pd.isna(ltp_val) or pd.isna(nav_val):
-                     st.warning("⚠️ Price data unavailable or invalid for this ETF.")
-                 else:
+                if pd.isna(ltp_val) or pd.isna(nav_val):
+                    st.warning("⚠️ Price data unavailable or invalid for this ETF.")
+                else:
                       st.markdown(f"""
                       <div style="
                       background: white;
