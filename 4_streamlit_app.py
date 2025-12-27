@@ -744,6 +744,19 @@ if selected_etf:
                         ).properties(height=300)
 
                         st.altair_chart(price_chart, width='stretch')
+
+                        # ============================================================
+                        # ADD/REPLACE THIS PART TO SHOW "UPDATED ON"
+                        # ============================================================
+                        if pd.notna(latest_price_date):
+                            date_str = latest_price_date.strftime('%d %b %Y')
+                            st.markdown(f"<p style='text-align: center; color: #666; font-size: 13px; margin-top: 10px;'>Updated on {date_str}</p>", unsafe_allow_html=True)
+                        # ============================================================
+
+                        # Close button
+                        if st.button("❌ Close", key=f"close_{ticker}"):
+                            st.session_state[f'show_price_{ticker}'] = False
+                            st.rerun()st.altair_chart(price_chart, width='stretch')
                         
                         # ============================================================
                         # FIX IS HERE (Line 748 context)
@@ -752,15 +765,7 @@ if selected_etf:
                         if pd.notna(latest_price_date):
                             st.caption(f"Data as of: {latest_price_date.strftime('%d %b %Y')}")
 
-                        # Close button
-                        if st.button("❌ Close", key=f"close_{ticker}"):
-                            st.session_state[f'show_price_{ticker}'] = False
-                            st.rerun()
-            else:
-                st.warning("⚠️ Price data not available for this ticker.")
-        else:
-            st.warning("⚠️ Price data file not found.")
-   
+                       
 
 # ============================================================
 # AI ASSISTANT SECTION - ENHANCED
