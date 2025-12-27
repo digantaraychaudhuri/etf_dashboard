@@ -665,21 +665,21 @@ if selected_etf:
             latest_price_date = df_price["date"].max()
 
 
-        # FIXED: Price file uses 'symbol' column, standardize it
-        if 'symbol' in df_price.columns:
-            df_price["symbol"] = (
-            df_price["symbol"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )    
-        elif 'nse_ticker' in df_price.columns:
-            df_price["symbol"] = (
-            df_price["nse_ticker"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )
+            # FIXED: Price file uses 'symbol' column, standardize it
+            if 'symbol' in df_price.columns:
+                df_price["symbol"] = (
+                df_price["symbol"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )    
+            elif 'nse_ticker' in df_price.columns:
+                df_price["symbol"] = (
+                df_price["nse_ticker"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )
 
 
             # FIXED: Get the ticker from the 'symbol' column in the master file
@@ -703,9 +703,32 @@ if selected_etf:
                 if st.session_state[f'show_price_{ticker}']:
                     ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
                     nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
-                if pd.isna(ltp_val) or pd.isna(nav_val):
-                    st.warning("⚠️ Price data unavailable or invalid for this ETF.")
-                    st.stop()
+                if st.session_state[f'show_price_{ticker}']:
+                    ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
+                    nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
+
+                 if pd.isna(ltp_val) or pd.isna(nav_val):
+                     st.warning("⚠️ Price data unavailable or invalid for this ETF.")
+                 else:
+                      st.markdown(f"""
+                      <div style="
+                      background: white;
+                      padding: 20px;
+                      border-radius: 10px;
+                      margin-top: 15px;
+                      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+                    ">
+                <p style="margin: 8px 0; font-size: 16px;">
+                <span style="color: #1976D2; font-weight: bold;">LTP:</span>
+                <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {ltp_val}</span>
+                </p>
+                <p style="margin: 8px 0; font-size: 16px;">
+                <span style="color: #388E3C; font-weight: bold;">NAV:</span>
+                <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {nav_val}</span>
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+
                     st.markdown(f"""
                     <div style="
                         background: white;
