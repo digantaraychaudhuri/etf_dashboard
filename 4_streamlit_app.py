@@ -650,7 +650,7 @@ if selected_etf:
         """, unsafe_allow_html=True)
 
         # Load price data
-            PRICE_FILE="data/nse_etf_prices.csv"
+        PRICE_FILE="data/nse_etf_prices.csv"
             if os.path.exists(PRICE_FILE):
                 df_price = pd.read_csv(PRICE_FILE)
     
