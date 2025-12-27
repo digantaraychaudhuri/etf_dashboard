@@ -707,6 +707,16 @@ if selected_etf:
                 if st.session_state[f'show_price_{ticker}']:
                     ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
                     nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
+                    # ============================================================
+                    # DEBUG BLOCK (INSERT THIS HERE)
+                    # ============================================================
+                    st.markdown("### 🐞 Debugging Info")
+                    st.write("1. Columns found in Price File:", df_price.columns.tolist())
+                    st.write("2. Raw Date Value found:", price_row.iloc[0]["date"])
+                    st.write("3. Is it valid date?", pd.notna(price_row.iloc[0]["date"]))
+                    st.markdown("---")
+                    # ============
+
 
                     if pd.isna(ltp_val) or pd.isna(nav_val):
                         st.warning("⚠️ Price data unavailable or invalid for this ETF.")
