@@ -727,9 +727,9 @@ if selected_etf:
                 <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {nav_val}</span>
                 </p>
             </div>
-        """, unsafe_allow_html=True)
+         """, unsafe_allow_html=True)
 
-                    st.markdown(f"""
+                st.markdown(f"""
                     <div style="
                         background: white;
                         padding: 20px;
