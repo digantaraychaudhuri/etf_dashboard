@@ -755,35 +755,11 @@ if selected_etf:
                             tooltip=["Metric", alt.Tooltip("Value:Q", format=".2f")]
                         ).properties(height=300)
 
-                        st.altair_chart(price_chart, width='stretch')
-                        # ROBUST DATE PARSER (Day-Month-Year Support)
-                        # ============================================================
-                        # Get raw data and ensure it's a clean string
-                        raw_date = price_row.iloc[0]["date"]
-                        
-                        # DEBUG: Show exactly what is seen
-                        st.markdown(f"<small style='color: gray; display: block; text-align: center; margin-bottom: 5px;'>Raw Data: {raw_date}</small>", unsafe_allow_html=True)
-                        
-                        final_date = None
-                        
-                        if pd.notna(raw_date):
-                            # Convert to string and strip whitespace/newlines
-                            clean_date_str = str(raw_date).strip()
-                            
-                            try:
-                                # Force 'dayfirst=True' so 26-12-2025 is read as 26th Dec, not invalid 12th Month
-                                final_date = pd.to_datetime(clean_date_str, dayfirst=True, errors='coerce')
-                            except:
-                                pass
-                        
-                        # 3. Display Result
-                        if pd.notna(final_date):
-                            date_str = final_date.strftime('%d %b %Y')
-                            st.markdown(f"<p style='text-align: center; color: #666; font-size: 13px; margin-top: 0px;'>Updated on {date_str}</p>", unsafe_allow_html=True)
-                        else:
-                            # If this persists, please type the "Raw Data" text here so I can see it
-                            st.markdown(f"<p style='text-align: center; color: #D32F2F; font-size: 13px; margin-top: 0px;'>⚠️ Date Unreadable. Please type 'Raw Data' value here.</p>", unsafe_allow_html=True)
-# ============================================================
+                        st.altair_chart(price_chart, width='stretch')     
+                        # Close button
+                        if st.button("❌ Close", key=f"close_{ticker}"):
+                            st.session_state[f'show_price_{ticker}'] = False
+                            st.rerun()
 # AI ASSISTANT SECTION - ENHANCED
 # ============================================================
 st.markdown("---")
