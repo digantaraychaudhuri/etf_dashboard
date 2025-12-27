@@ -621,7 +621,7 @@ if selected_etf:
                                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                             ">
                                 <p style="color: white; font-size: 17px; margin: 0; font-weight: bold;">
-                                    💎 Total Top 10 Holdings: {total_pct}%
+                                    💎 Contribution from Top 10 Holdings: {total_pct}%
                                 </p>
                             </div>
                             """,
