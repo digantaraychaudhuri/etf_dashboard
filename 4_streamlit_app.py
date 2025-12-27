@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 import altair as alt
-latest_price_date = None
 
 # ============================================================
 # PAGE CONFIG
@@ -14,7 +13,7 @@ st.set_page_config(
 )
 
 # ============================================================
-# TOP SCROLLING MESSAGE
+# GLOBAL CSS STYLING
 # ============================================================
 st.markdown("""
 <style>
@@ -41,8 +40,41 @@ st.markdown("""
     0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
 }
-</style>
 
+/* Global app background */
+.stApp {
+    background-color: #E6E6FA;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+}
+
+/* Ensure all text elements inherit the font */
+html, body, [class*="css"] {
+    font-family: "Comic Sans MS", "Comic Sans", cursive !important;
+}
+
+/* Enhanced button styling */
+.stButton>button {
+    background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+    color: white;
+    font-weight: bold;
+    border-radius: 10px;
+    padding: 12px 24px;
+    border: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.stButton>button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# TOP SCROLLING MESSAGE
+# ============================================================
+st.markdown("""
 <div class="scrolling-container">
     <div class="scrolling-text">
         ✨ WORK IN PROGRESS - THANK YOU FOR YOUR PATIENCE ✨
@@ -85,46 +117,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================
-# MAUVE BACKGROUND + GLOBAL FONT
-# ============================================================
-st.markdown("""
-<style>
-/* Global app background */
-.stApp {
-    background-color: #E6E6FA;
-    font-family: "Comic Sans MS", "Comic Sans", cursive;
-}
-
-/* Ensure all text elements inherit the font */
-html, body, [class*="css"] {
-    font-family: "Comic Sans MS", "Comic Sans", cursive !important;
-}
-
-/* Enhanced button styling */
-.stButton>button {
-    background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
-    color: white;
-    font-weight: bold;
-    border-radius: 10px;
-    padding: 12px 24px;
-    border: none;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    transition: all 0.3s ease;
-}
-
-.stButton>button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ============================================================
 # LOAD DATA
 # ============================================================
 FILE = "etf_master_new_cleaned.csv"
 HOLDINGS_FILE = "holding_analysis.csv"
 
+# Load Master Data
 if not os.path.exists(FILE):
     st.error("❌ File etf_master_new_cleaned.csv not found")
     st.stop()
@@ -133,9 +131,7 @@ df = pd.read_csv(FILE, dtype=str)
 df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
 
-# ============================================================
-# LOAD HOLDINGS DATA
-# ============================================================
+# Load Holdings Data
 holdings_dict = {}
 
 if os.path.exists(HOLDINGS_FILE):
@@ -216,6 +212,42 @@ df["_text"] = (
 )
 
 # ============================================================
+# LOAD PRICE DATA (Global for footer)
+# ============================================================
+PRICE_FILE = "data/nse_etf_prices.csv"
+df_price = pd.DataFrame()
+latest_price_date = None
+
+if os.path.exists(PRICE_FILE):
+    df_price = pd.read_csv(PRICE_FILE)
+    # 1️⃣ Normalize column names FIRST
+    df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
+    # 2️⃣ Parse date with correct format (dd-mm-yyyy)
+    df_price["date"] = pd.to_datetime(
+        df_price["date"],
+        format="%d-%m-%Y",
+        errors="coerce"
+    )
+    # 3️⃣ Now safely compute latest date
+    latest_price_date = df_price["date"].max()
+
+    # 4️⃣ Standardize Symbol Column
+    if 'symbol' in df_price.columns:
+        df_price["symbol"] = (
+            df_price["symbol"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+    elif 'nse_ticker' in df_price.columns:
+        df_price["symbol"] = (
+            df_price["nse_ticker"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+
+# ============================================================
 # ASSET MAP & CATEGORIES
 # ============================================================
 ASSET_MAP = {
@@ -265,10 +297,9 @@ SECTORAL = {
     "PHARMA": r"pharma"
 }
 
-
 THEMATIC = {
     "PSE": r"\bpse\b(?!.*bank)",
-    "India Cosumption": r"india.*consumption",
+    "India Consumption": r"india.*consumption",
     "Capital Market & Insurance": r"capital.*market.*insurance",
     "EV and New Age Automotive": r"\bev\b|new.*age.*auto",
     "Defence": r"defence|defense",
@@ -283,7 +314,7 @@ THEMATIC = {
     "MNC": r"\bmnc\b",
     "Energy": r"\benergy\b(?!.*new)",
     "Manufacturing": r"manufacturing",
-    "New Age Consumtion": r"new.*age.*consum",
+    "New Age Consumption": r"new.*age.*consum",
     "ESG SECTOR LEADERS": r"\besg\b",
     "Tourism": r"tourism",
     "India Infrastructure": r"india.*infrastructure",
@@ -649,46 +680,16 @@ if selected_etf:
         </div>
         """, unsafe_allow_html=True)
 
-        # Load price data
-        PRICE_FILE="data/nse_etf_prices.csv"
-        if os.path.exists(PRICE_FILE):
-            df_price = pd.read_csv(PRICE_FILE)
-            # 1️⃣ Normalize column names FIRST
-            df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")  
-            # 2️⃣ Parse date with correct format (dd-mm-yyyy)
-            df_price["date"] = pd.to_datetime(
-            df_price["date"],
-            format="%d-%m-%Y",
-             errors="coerce"
-             )
-            # 3️⃣ Now safely compute latest date
-            latest_price_date = df_price["date"].max()
-
-
-            # FIXED: Price file uses 'symbol' column, standardize it
-            if 'symbol' in df_price.columns:
-                df_price["symbol"] = (
-                df_price["symbol"]
-                .astype(str)
-                .str.strip()
-                .str.upper()
-            )    
-            elif 'nse_ticker' in df_price.columns:
-                df_price["symbol"] = (
-                df_price["nse_ticker"]
-                .astype(str)
-                .str.strip()
-                .str.upper()
-            )
-
-
+        # Use globally loaded df_price
+        if not df_price.empty:
             # FIXED: Get the ticker from the 'symbol' column in the master file
             ticker = str(row.get("symbol", "")).strip().upper()
             price_row = df_price[df_price["symbol"] == ticker]
-            st.write("DEBUG ticker from master:", ticker)
-            st.write("DEBUG unique symbols in price file (sample):", df_price["symbol"].unique()[:10])
-            st.write("DEBUG price file columns:", df_price.columns.tolist())
-
+            
+            # DEBUG (Optional, commented out for production feel)
+            # st.write("DEBUG ticker from master:", ticker)
+            # st.write("DEBUG unique symbols in price file (sample):", df_price["symbol"].unique()[:10])
+            # st.write("DEBUG price file columns:", df_price.columns.tolist())
 
             if not price_row.empty:
                 # Initialize session state for price visibility
@@ -703,73 +704,53 @@ if selected_etf:
                 if st.session_state[f'show_price_{ticker}']:
                     ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
                     nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
-                if st.session_state[f'show_price_{ticker}']:
-                    ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
-                    nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
 
-                if pd.isna(ltp_val) or pd.isna(nav_val):
-                    st.warning("⚠️ Price data unavailable or invalid for this ETF.")
-                else:
-                      st.markdown(f"""
-                      <div style="
-                      background: white;
-                      padding: 20px;
-                      border-radius: 10px;
-                      margin-top: 15px;
-                      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-                    ">
-                <p style="margin: 8px 0; font-size: 16px;">
-                <span style="color: #1976D2; font-weight: bold;">LTP:</span>
-                <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {ltp_val}</span>
-                </p>
-                <p style="margin: 8px 0; font-size: 16px;">
-                <span style="color: #388E3C; font-weight: bold;">NAV:</span>
-                <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {nav_val}</span>
-                </p>
-            </div>
-         """, unsafe_allow_html=True)
+                    if pd.isna(ltp_val) or pd.isna(nav_val):
+                        st.warning("⚠️ Price data unavailable or invalid for this ETF.")
+                    else:
+                        st.markdown(f"""
+                        <div style="
+                            background: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            margin-top: 15px;
+                            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+                        ">
+                            <p style="margin: 8px 0; font-size: 16px;">
+                                <span style="color: #1976D2; font-weight: bold;">LTP:</span>
+                                <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {ltp_val}</span>
+                            </p>
+                            <p style="margin: 8px 0; font-size: 16px;">
+                                <span style="color: #388E3C; font-weight: bold;">NAV:</span>
+                                <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {nav_val}</span>
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                st.markdown(f"""
-                    <div style="
-                        background: white;
-                        padding: 20px;
-                        border-radius: 10px;
-                        margin-top: 15px;
-                        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-                    ">
-                        <p style="margin: 8px 0; font-size: 16px;">
-                            <span style="color: #1976D2; font-weight: bold;">LTP:</span>
-                            <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {ltp_val}</span>
-                        </p>
-                        <p style="margin: 8px 0; font-size: 16px;">
-                            <span style="color: #388E3C; font-weight: bold;">NAV:</span>
-                            <span style="color: #000; font-size: 20px; font-weight: bold;">₹ {nav_val}</span>
-                        </p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        # Bar chart
+                        price_df = pd.DataFrame({
+                            "Metric": ["LTP", "NAV"],
+                            "Value": [ltp_val, nav_val]
+                        })
 
-                    # Bar chart
-                    price_df = pd.DataFrame({
-                        "Metric": ["LTP", "NAV"],
-                        "Value": [ltp_val, nav_val]
-                    })
+                        price_chart = alt.Chart(price_df).mark_bar(
+                            size=60
+                        ).encode(
+                            x=alt.X("Metric:N", axis=alt.Axis(labelFontWeight="bold", labelFontSize=14)),
+                            y=alt.Y("Value:Q", title="₹ Value"),
+                            color=alt.Color("Metric:N", scale=alt.Scale(range=["#42A5F5", "#66BB6A"]), legend=None),
+                            tooltip=["Metric", alt.Tooltip("Value:Q", format=".2f")]
+                        ).properties(height=300)
 
-                    price_chart = alt.Chart(price_df).mark_bar(
-                        size=60
-                    ).encode(
-                        x=alt.X("Metric:N", axis=alt.Axis(labelFontWeight="bold", labelFontSize=14)),
-                        y=alt.Y("Value:Q", title="₹ Value"),
-                        color=alt.Color("Metric:N", scale=alt.Scale(range=["#42A5F5", "#66BB6A"]), legend=None),
-                        tooltip=["Metric", alt.Tooltip("Value:Q", format=".2f")]
-                    ).properties(height=300)
+                        st.altair_chart(price_chart, width='stretch')
+                        
+                        if latest_price_date:
+                            st.caption(f"Data as of: {latest_price_date.strftime('%d %b %Y')}")
 
-                    st.altair_chart(price_chart, width='stretch')
-                    st.caption(f"Data as of: {latest_price_date.strftime('%d %b %Y')}")
-
-                    # Close button
-                    if st.button("❌ Close", key=f"close_{ticker}"):
-                        st.session_state[f'show_price_{ticker}'] = False
-                        st.rerun()
+                        # Close button
+                        if st.button("❌ Close", key=f"close_{ticker}"):
+                            st.session_state[f'show_price_{ticker}'] = False
+                            st.rerun()
             else:
                 st.warning("⚠️ Price data not available for this ticker.")
         else:
@@ -832,6 +813,7 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
 st.markdown("""
 <div style="
     font-size: 11px;
@@ -843,6 +825,7 @@ st.markdown("""
     Data taken from NSE, AMFI and AMC websites.
 </div>
 """, unsafe_allow_html=True)
+
 # ============================================================
 # LEGAL + COPYRIGHT + LAST UPDATED
 # ============================================================
@@ -861,6 +844,7 @@ st.markdown("""
     Please consult a registered financial advisor before making investment decisions.
 </div>
 """, unsafe_allow_html=True)
+
 if latest_price_date is not None:
     st.markdown(f"""
     <div style="
