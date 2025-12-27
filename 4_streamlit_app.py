@@ -671,7 +671,9 @@ if selected_etf:
         else:
             st.info("📊 Holdings data not available for this ETF.")
 
-       # RIGHT COLUMN - PRICE CARD
+    # ============================================================
+    # RIGHT COLUMN - PRICE CARD
+    # ============================================================
     with right_col:
         st.markdown("""
         <div style="
@@ -756,16 +758,11 @@ if selected_etf:
                         # Close button
                         if st.button("❌ Close", key=f"close_{ticker}"):
                             st.session_state[f'show_price_{ticker}'] = False
-                            st.rerun()st.altair_chart(price_chart, width='stretch')
-                        
-                        # ============================================================
-                        # FIX IS HERE (Line 748 context)
-                        # ============================================================
-                        # We use pd.notna() to ensure latest_price_date is valid before formatting
-                        if pd.notna(latest_price_date):
-                            st.caption(f"Data as of: {latest_price_date.strftime('%d %b %Y')}")
-
-                       
+                            st.rerun()
+            else:
+                st.warning("⚠️ Price data not available for this ticker.")
+        else:
+            st.warning("⚠️ Price data file not found.")
 
 # ============================================================
 # AI ASSISTANT SECTION - ENHANCED
