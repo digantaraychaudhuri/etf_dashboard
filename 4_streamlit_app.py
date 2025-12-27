@@ -844,6 +844,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if latest_price_date is not None:
+    # Added requested line
+    st.markdown(f"""
+    <div style="
+        font-size: 11px;
+        color: #444;
+        text-align: left;
+        margin-top: 6px;
+    ">
+        Copyright by Diganta Raychaudhuri
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown(f"""
     <div style="
         font-size: 11px;
