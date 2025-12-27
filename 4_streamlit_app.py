@@ -663,8 +663,8 @@ if selected_etf:
                 format="%d-%m-%Y",
                 errors="coerce"
                 )
-# 3️⃣ Now safely compute latest date
-latest_price_date = df_price["date"].max()
+                # 3️⃣ Now safely compute latest date
+                latest_price_date = df_price["date"].max()
 
 
         # FIXED: Price file uses 'symbol' column, standardize it
