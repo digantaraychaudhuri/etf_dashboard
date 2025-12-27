@@ -753,7 +753,9 @@ if selected_etf:
                         if pd.notna(latest_price_date):
                             date_str = latest_price_date.strftime('%d %b %Y')
                             st.markdown(f"<p style='text-align: center; color: #666; font-size: 13px; margin-top: 10px;'>Updated on {date_str}</p>", unsafe_allow_html=True)
-                        # ============================================================
+                        else:
+                            # This message will appear if the date data is missing or invalid
+                            st.markdown(f"<p style='text-align: center; color: #D32F2F; font-size: 13px; margin-top: 10px;'>⚠️ Date Data Unavailable</p>", unsafe_allow_html=True)
 
                         # Close button
                         if st.button("❌ Close", key=f"close_{ticker}"):
