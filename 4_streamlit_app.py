@@ -224,7 +224,7 @@ latest_price_date = None
 price_file_mtime = None  # Variable to store file timestamp
 
 if os.path.exists(PRICE_FILE):
-    # ADDED: Capture the file modification time
+    # ADDED: Capture file modification time
     price_file_mtime = os.path.getmtime(PRICE_FILE)
     
     try:
@@ -340,7 +340,8 @@ THEMATIC = {
     "CPSE": r"\bcpse\b",
     "PSU BANK": r"psu.*bank",
     "Digital": r"digital",
-    "Services Sector": r"\bservices\b"
+    "FIXED: Exclude 'financial' to prevent Financial Services from appearing here"
+    "Services Sector": r"(?!.*financial)\bservices\b"
 }
 
 STRATEGIC = {
@@ -549,7 +550,7 @@ if selected_etf:
             st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>Launch Date:</span> <span style='color:#000000;'>{row.get('launch_date', '-')}</span></p>", unsafe_allow_html=True)
 
         with d2:
-            # FIXED: Changed from 'nse_ticker' to 'symbol' to match the new column name
+            # FIXED: Changed from 'nse_ticker' to 'symbol' to match new column name
             st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>NSE Ticker:</span> <span style='color:#000000;'>{row.get('symbol', '-')}</span></p>", unsafe_allow_html=True)
             st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>BSE Ticker:</span> <span style='color:#000000;'>{row.get('bse_ticker', '-')}</span></p>", unsafe_allow_html=True)
             st.markdown(f"<p style='margin:5px 0;'><span style='color:#4A235A;font-weight:bold;'>ISIN Code:</span> <span style='color:#000000;'>{row.get('isin_code', '-')}</span></p>", unsafe_allow_html=True)
