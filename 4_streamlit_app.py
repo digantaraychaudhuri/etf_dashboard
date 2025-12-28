@@ -276,7 +276,7 @@ BROADER = {
     "Nifty 200": r"nifty\s*200\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility|factor))",
     "Nifty SmallCap 250": r"smallcap\s*250\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
     "Nifty Midcap 150": r"midcap\s*150\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
-    "Nifty 100": r"nifty\s*100\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility|factor))",
+    "Nifty 100": r"nifty\s*100\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility|factor|esg))",
     "BSE 500": r"bse\s*500(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
     "BSE Midcap Select": r"midcap\s*select(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
     "Nifty Midcap 50": r"midcap\s*50\b(?!.*(?:value|equal\s*weight|quality|momentum|alpha|low\s*volatility))",
