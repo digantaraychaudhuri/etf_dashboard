@@ -213,48 +213,56 @@ df["_text"] = (
     df["category"].astype(str).str.lower() + " " +
     df["benchmark_index"].astype(str).str.lower()
 )
+
 # ============================================================
-# LOAD PRICE DATA (Global for footer)
+# LOAD PRICE DATA (Fixed for Robustness)
 # ============================================================
 PRICE_FILE = "data/nse_etf_prices.csv"
 df_price = pd.DataFrame()
 latest_price_date = None
 
 if os.path.exists(PRICE_FILE):
-    df_price = pd.read_csv(PRICE_FILE)
-    # Normalize column names
-    df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
-    
-    # Check if 'date' column exists before processing
-    if 'date' in df_price.columns:
-        df_price["date"] = pd.to_datetime(
-            df_price["date"],
-            format="%d-%m-%Y",
-            errors="coerce"
-        )
-        # Only calculate max if the dataframe is not empty
-        if not df_price.empty:
-            latest_price_date = df_price["date"].max()
-            
-            # If max() returns NaT (Not a Time), convert it back to None to avoid formatting errors later
-            if pd.isna(latest_price_date):
-                latest_price_date = None
+    try:
+        df_price = pd.read_csv(PRICE_FILE)
+        # Normalize column names
+        df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
+        
+        # FIX: Smart detection of date column
+        # Look for a column that contains 'date' (e.g., 'date', 'trade_date', 'timestamp')
+        date_col = next((c for c in df_price.columns if 'date' in c), None)
+        
+        if date_col:
+            df_price["date"] = pd.to_datetime(
+                df_price[date_col],
+                format="%d-%m-%Y",
+                errors="coerce"  # If format fails, try pandas default parser
+            )
+            # Only calculate max if the dataframe is not empty
+            if not df_price.empty and "date" in df_price.columns:
+                latest_price_date = df_price["date"].max()
+                
+                # If max() returns NaT (Not a Time), convert it back to None
+                if pd.isna(latest_price_date):
+                    latest_price_date = None
 
-    # Standardize Symbol Column
-    if 'symbol' in df_price.columns:
-        df_price["symbol"] = (
-            df_price["symbol"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )
-    elif 'nse_ticker' in df_price.columns:
-        df_price["symbol"] = (
-            df_price["nse_ticker"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )
+        # Standardize Symbol Column
+        if 'symbol' in df_price.columns:
+            df_price["symbol"] = (
+                df_price["symbol"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )
+        elif 'nse_ticker' in df_price.columns:
+            df_price["symbol"] = (
+                df_price["nse_ticker"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )
+    except Exception as e:
+        st.warning(f"⚠️ Could not load price data: {e}")
+        df_price = pd.DataFrame()
 
 # ============================================================
 # ASSET MAP & CATEGORIES
@@ -331,7 +339,7 @@ THEMATIC = {
     "CPSE": r"\bcpse\b",
     "PSU BANK": r"psu.*bank",
     "Digital": r"digital",
-    "Services Sector":r"\bservices\b"
+    "Services Sector": r"\bservices\b"
 }
 
 STRATEGIC = {
@@ -759,6 +767,8 @@ if selected_etf:
                 st.warning("⚠️ Price data not available for this ticker.")
         else:
             st.warning("⚠️ Price data file not found.")
+
+# ============================================================
 # AI ASSISTANT SECTION - ENHANCED
 # ============================================================
 st.markdown("---")
@@ -826,7 +836,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================
-# LEGAL + COPYRIGHT + LAST UPDATED
+# LEGAL + COPYRIGHT + LAST UPDATED (FIXED)
 # ============================================================
 
 st.markdown("""
@@ -844,37 +854,49 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ============================================================
+# STATIC COPYRIGHT LINE (Always visible)
+# ============================================================
+st.markdown("""
+<div style="
+    font-size: 11px;
+    color: #444;
+    text-align: left;
+    margin-top: 6px;
+">
+    Copyright by Diganta Raychaudhuri
+</div>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# DYNAMIC DATE LINE (With fallback)
+# ============================================================
+# Determine the date string to display
+date_display_str = ""
 if latest_price_date is not None:
-    # Added requested line
-    st.markdown(f"""
-    <div style="
-        font-size: 11px;
-        color: #444;
-        text-align: left;
-        margin-top: 6px;
-    ">
-        Copyright by Diganta Raychaudhuri
-    </div>
-    """, unsafe_allow_html=True)
+    date_display_str = latest_price_date.strftime('%d %b %Y')
+else:
+    # Fallback if date is missing
+    date_display_str = "Data Unavailable"
 
-    st.markdown(f"""
-    <div style="
-        font-size: 11px;
-        color: #444;
-        text-align: left;
-        margin-top: 6px;
-    ">
-        © {latest_price_date.year} Diganta Raychaudhuri. All rights reserved.
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown(f"""
+<div style="
+    font-size: 11px;
+    color: #444;
+    text-align: left;
+    margin-top: 6px;
+">
+    © {latest_price_date.year if latest_price_date is not None else '2024'} Diganta Raychaudhuri. All rights reserved.
+</div>
+""", unsafe_allow_html=True)
 
-    st.markdown(f"""
-    <div style="
-        font-size: 11px;
-        color: #444;
-        text-align: left;
-        margin-top: 4px;
-    ">
-        Last updated: {latest_price_date.strftime('%d %b %Y')} (EOD, NSE)
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown(f"""
+<div style="
+    font-size: 11px;
+    color: #444;
+    text-align: left;
+    margin-top: 4px;
+">
+    Last updated: {date_display_str} (EOD, NSE)
+</div>
+""", unsafe_allow_html=True)
