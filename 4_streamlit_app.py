@@ -330,7 +330,7 @@ THEMATIC = {
     "Nifty 50 shariah": r"nifty.*50.*shariah",
     "CPSE": r"\bcpse\b",
     "PSU BANK": r"psu.*bank",
-    "Digital": r"digital"
+    "Digital": r"digital",
     "Services Sector":r"\bservices\b"
 }
 
