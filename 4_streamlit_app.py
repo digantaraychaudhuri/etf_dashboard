@@ -341,7 +341,7 @@ THEMATIC = {
     "PSU BANK": r"psu.*bank",
     "Digital": r"digital",
     #"Services Sector": r"(?<!financial )\bservices\b"
-    "Services Sector": r"services sector"
+    "Service Sector": r"service sector"
 }
 
 STRATEGIC = {
