@@ -96,7 +96,7 @@ st.markdown("""
     box-shadow: 0 8px 16px rgba(0,0,0,0.2);
 ">
     <h1 style="color: white; margin: 0; font-size: 42px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
-        📊 Indian ETF Tracker
+          Indian ETF Tracker
     </h1>
     <p style="color: white; margin: 10px 0 0 0; font-size: 18px; text-align: center; font-style: italic;">
         let's invest in passives, actively
