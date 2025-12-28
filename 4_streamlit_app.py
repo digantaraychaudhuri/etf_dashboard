@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import altair as alt
+import datetime  # ADDED: Needed to read file timestamps
 
 # ============================================================
 # PAGE CONFIG
@@ -215,33 +216,33 @@ df["_text"] = (
 )
 
 # ============================================================
-# LOAD PRICE DATA (Fixed for Robustness)
+# LOAD PRICE DATA (Fixed for Robustness + File Timestamp)
 # ============================================================
 PRICE_FILE = "data/nse_etf_prices.csv"
 df_price = pd.DataFrame()
 latest_price_date = None
+price_file_mtime = None  # Variable to store file timestamp
 
 if os.path.exists(PRICE_FILE):
+    # ADDED: Capture the file modification time
+    price_file_mtime = os.path.getmtime(PRICE_FILE)
+    
     try:
         df_price = pd.read_csv(PRICE_FILE)
         # Normalize column names
         df_price.columns = df_price.columns.str.strip().str.lower().str.replace(" ", "_")
         
         # FIX: Smart detection of date column
-        # Look for a column that contains 'date' (e.g., 'date', 'trade_date', 'timestamp')
         date_col = next((c for c in df_price.columns if 'date' in c), None)
         
         if date_col:
             df_price["date"] = pd.to_datetime(
                 df_price[date_col],
                 format="%d-%m-%Y",
-                errors="coerce"  # If format fails, try pandas default parser
+                errors="coerce"
             )
-            # Only calculate max if the dataframe is not empty
             if not df_price.empty and "date" in df_price.columns:
                 latest_price_date = df_price["date"].max()
-                
-                # If max() returns NaT (Not a Time), convert it back to None
                 if pd.isna(latest_price_date):
                     latest_price_date = None
 
@@ -836,7 +837,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================
-# LEGAL + COPYRIGHT + LAST UPDATED (FIXED)
+# LEGAL + COPYRIGHT + LAST UPDATED + FILE TIMESTAMP
 # ============================================================
 
 st.markdown("""
@@ -867,6 +868,22 @@ st.markdown("""
     Copyright by Diganta Raychaudhuri
 </div>
 """, unsafe_allow_html=True)
+
+# ============================================================
+# NEW: PRICE FILE TIMESTAMP
+# ============================================================
+if price_file_mtime:
+    file_dt_str = datetime.datetime.fromtimestamp(price_file_mtime).strftime('%d %b %Y, %I:%M %p')
+    st.markdown(f"""
+    <div style="
+        font-size: 11px;
+        color: #444;
+        text-align: left;
+        margin-top: 6px;
+    ">
+        Price data updated on: {file_dt_str}
+    </div>
+    """, unsafe_allow_html=True)
 
 # ============================================================
 # DYNAMIC DATE LINE (With fallback)
