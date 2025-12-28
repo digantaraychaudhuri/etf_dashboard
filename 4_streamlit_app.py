@@ -9,7 +9,7 @@ import datetime  # ADDED: Needed to read file timestamps
 # ============================================================
 st.set_page_config(
     page_title="Indian ETF Tracker",
-    page_icon="📊",
+   page_icon="💹",
     layout="wide"
 )
 
