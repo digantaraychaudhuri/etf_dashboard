@@ -340,8 +340,7 @@ THEMATIC = {
     "CPSE": r"\bcpse\b",
     "PSU BANK": r"psu.*bank",
     "Digital": r"digital",
-    "FIXED: Exclude 'financial' to prevent Financial Services from appearing here"
-    "Services Sector": r"(?!.*financial)\bservices\b"
+    "Services Sector": r"(?<!financial\s)\bservices\b"
 }
 
 STRATEGIC = {
