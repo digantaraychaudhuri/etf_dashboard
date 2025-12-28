@@ -9,7 +9,7 @@ import datetime  # ADDED: Needed to read file timestamps
 # ============================================================
 st.set_page_config(
     page_title="Indian ETF Tracker",
-    page_icon="💹",
+    #page_icon="💹",
     layout="wide"
 )
 
@@ -299,7 +299,7 @@ BROADER = {
 
 SECTORAL = {
     "BANK": r"\bbank\b",
-    "FINANCIAL SERVICES": r"financial.*services\b",
+    "FINANCIAL SERVICES": r"financial.*services\b(?!.*ex.*bank)",
     "HEALTHCARE": r"healthcare|health",
     "IT": r"\bit\b|information\s*technology",
     "PRIVATE BANK": r"private.*bank",
@@ -340,7 +340,8 @@ THEMATIC = {
     "CPSE": r"\bcpse\b",
     "PSU BANK": r"psu.*bank",
     "Digital": r"digital",
-    "Services Sector": r"(?<!financial )\bservices\b"
+    #"Services Sector": r"(?<!financial )\bservices\b"
+    "Services Sector": r"services sector"
 }
 
 STRATEGIC = {
