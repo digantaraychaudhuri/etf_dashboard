@@ -886,34 +886,28 @@ if price_file_mtime:
     """, unsafe_allow_html=True)
 
 # ============================================================
-# DYNAMIC DATE LINE (With fallback)
+# DYNAMIC DATE LINE (Only show if data is found)
 # ============================================================
-# Determine the date string to display
-date_display_str = ""
+# Only display the copyright year and "Last updated" line if we successfully found a date inside the CSV
 if latest_price_date is not None:
-    date_display_str = latest_price_date.strftime('%d %b %Y')
-else:
-    # Fallback if date is missing
-    date_display_str = "Data Unavailable"
+    st.markdown(f"""
+    <div style="
+        font-size: 11px;
+        color: #444;
+        text-align: left;
+        margin-top: 6px;
+    ">
+        © {latest_price_date.year} Diganta Raychaudhuri. All rights reserved.
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown(f"""
-<div style="
-    font-size: 11px;
-    color: #444;
-    text-align: left;
-    margin-top: 6px;
-">
-    © {latest_price_date.year if latest_price_date is not None else '2024'} Diganta Raychaudhuri. All rights reserved.
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown(f"""
-<div style="
-    font-size: 11px;
-    color: #444;
-    text-align: left;
-    margin-top: 4px;
-">
-    Last updated: {date_display_str} (EOD, NSE)
-</div>
-""", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="
+        font-size: 11px;
+        color: #444;
+        text-align: left;
+        margin-top: 4px;
+    ">
+        Last updated: {latest_price_date.strftime('%d %b %Y')} (EOD, NSE)
+    </div>
+    """, unsafe_allow_html=True)
