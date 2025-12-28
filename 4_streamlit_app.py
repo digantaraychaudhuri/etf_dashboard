@@ -331,6 +331,7 @@ THEMATIC = {
     "CPSE": r"\bcpse\b",
     "PSU BANK": r"psu.*bank",
     "Digital": r"digital"
+    "Services Sector":r"services"
 }
 
 STRATEGIC = {
