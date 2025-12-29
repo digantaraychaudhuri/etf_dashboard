@@ -1,5 +1,5 @@
 UNIVERSE,ASSET CLASS,CATEGORY,SUB-CATEGORY,AMC,ETF,BENCHMARK INDEX,website_link,SYMBOL,BSE TICKER,ISIN CODE,LAUNCH DATE,AUM(Crores),EXPENSE RATIO,OVERALL TRACKING ERROR,OVERALL TRACKING DIFFERENCE,YEARS ACTIVE
-,COMMODITIES,GOLD,,Choice Mutual Fund,Choice Gold ETF,Domestic Price of Gold,https://choicemf.com/mutual-funds/etf,CHOICEGOLD,,INF2KCX01012,10-11-2025,,0.51,,-0.5,0.09
+,COMMODITIES,GOLD,,Choice Mutual Fund,Choice Gold ETF,Domestic Price of Gold,https://choicemf.com/mutual-funds/etf,CHOICEGOLD,,INF2KCX01012,10-11-2025,,0.51,63.45,-0.5,0.09
 ,COMMODITIES,GOLD,,360 ONE Mutual Fund,360 ONE Gold ETF,Domestic Price of Gold,https://www.360.one/asset-management/mutualfund/,GOLD360,544375,INF579M01BB5,17-03-2025,62.39,0.43,,,0.73
 ,COMMODITIES,SILVER,,360 ONE Mutual Fund,360 ONE Silver ETF,Domestic Price of Physical Silver,https://archive.iiflmf.com/international/our-funds/etf/360-one-silver-etf,SILVER360,544389,INF579M01BC3,10-03-2025,51.51,0.41,,,0.75
 NSE,EQUITY,STRATEGIC,Nifty 200 Factor Indices,Aditya Birla Sun Life MF,Aditya Birla Sun Life Nifty 200 Momentum 30 ETF,Nifty 200 Momentum 30 TRI,https://mutualfund.adityabirlacapital.com/products/wealth-creation-solutions/aditya-birla-sun-life-nifty-200-momentum-30-etf,MOMENTUM,543575,INF209KB14K7,19-08-2022,46.55,0.29,0.26,-0.5,3.27
@@ -305,3 +305,4 @@ NSE,DEBT,LIQUID,,Zerodha Mutual Fund,Zerodha Nifty 1D Rate Liquid ETF,Nifty 1D R
 NSE,EQUITY,BROADER,Nifty Midcap 150,Zerodha Mutual Fund,Zerodha Nifty Midcap 150 ETF,Nifty Midcap 150 TRI,https://www.zerodhafundhouse.com/etfs/zerodha-nifty-midcap-150-etf-ZE150,MID150CASE,544193,INF0R8F01059,19-06-2024,149.18,0.21,0.06,0.43,1.48
 NSE,EQUITY,BROADER,Nifty Midcap 150,Zerodha Mutual Fund,Zerodha Nifty Midcap 150 ETF,Nifty Midcap 150 TRI,https://www.zerodhafundhouse.com/etfs/zerodha-nifty-midcap-150-etf-ZE150,MID150CASE,,INF0R8F01059,19-06-2024,157.83,0.21,0.04,0.32,1.49
 NSE,EQUITY,BROADER,Nifty 50,Zerodha Mutual Fund,Zerodha Nifty 50 ETF,Nifty 50 TRI,https://www.zerodhafundhouse.com/etfs/zerodha-nifty-50-etf-ZEN50,NIFTYCASE,,INF0R8F01166,20-10-2025,9.31,0.05,0.35,,0.15
+
