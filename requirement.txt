@@ -2,6 +2,9 @@ streamlit
 pandas
 numpy
 plotly
+yfinance
+altair
+matplotlib
+seaborn
 vega_datasets
-#force rebuild
 
