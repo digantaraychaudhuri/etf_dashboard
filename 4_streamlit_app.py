@@ -24,10 +24,12 @@ st.set_page_config(
     layout="wide"
 )
 
+
+
+
 # ============================================================
 # MATPLOTLIB FONT CONFIGURATION
 # ============================================================
-# Use a safe, widely available font instead of Comic Sans MS
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica', 'sans-serif']
 
@@ -46,7 +48,6 @@ def calculate_rsi(data, period=14):
 
 def calculate_mfi(high, low, close, volume, period=14):
     """Calculate Money Flow Index"""
-    # Flatten Series if they have MultiIndex
     if isinstance(high, pd.Series) and isinstance(high.index, pd.MultiIndex):
         high = high.droplevel(0) if high.index.nlevels > 1 else high
     if isinstance(low, pd.Series) and isinstance(low.index, pd.MultiIndex):
@@ -59,14 +60,12 @@ def calculate_mfi(high, low, close, volume, period=14):
     typical_price = (high + low + close) / 3
     money_flow = typical_price * volume
 
-    # Use shift and comparison to create boolean masks
     price_increased = typical_price > typical_price.shift(1)
     price_decreased = typical_price < typical_price.shift(1)
 
     positive_mf = (money_flow * price_increased).rolling(window=period).sum()
     negative_mf = (money_flow * price_decreased).rolling(window=period).sum()
 
-    # Handle division by zero
     mfi = 100 - (100 / (1 + positive_mf / negative_mf.replace(0, np.nan)))
     return mfi
 
@@ -90,54 +89,25 @@ def calculate_emv(data, period=14):
     return emv_ma
 
 def calculate_mean_deviation(high, low, close, period=20):
-    """
-    Calculate Mean Deviation using typical price
-    Steps:
-    1. Calculate typical price = (High + Low + Close) / 3
-    2. Calculate 20-period average of typical price
-    3. Subtract the average from each period's typical price
-    4. Take absolute values
-    5. Sum the absolute values
-    6. Divide by the number of periods (20)
-    """
-    # Step 1: Calculate typical price
+    """Calculate Mean Deviation using typical price"""
     typical_price = (high + low + close) / 3
-
-    # Step 2: Calculate rolling mean of typical price
     typical_price_avg = typical_price.rolling(window=period).mean()
-
-    # Step 3 & 4: Subtract mean from typical price and take absolute value
     deviations = (typical_price - typical_price_avg).abs()
-
-    # Step 5 & 6: Calculate mean of absolute deviations
     mean_deviation = deviations.rolling(window=period).mean()
-
     return mean_deviation
 
 def calculate_cci(high, low, close, period=40):
-    """
-    Calculate Commodity Channel Index (CCI)
-    CCI = (Typical Price - SMA) / (0.015 * Mean Deviation)
-    """
-    # Step 1: Calculate Typical Price
+    """Calculate Commodity Channel Index (CCI)"""
     typical_price = (high + low + close) / 3
-
-    # Step 2: Calculate Simple Moving Average of Typical Price
     sma = typical_price.rolling(window=period).mean()
-
-    # Step 3: Calculate Mean Absolute Deviation
     mad = typical_price.rolling(window=period).apply(
         lambda x: np.mean(np.abs(x - np.mean(x))), raw=True
     )
-
-    # Step 4: Calculate CCI
     cci = (typical_price - sma) / (0.015 * mad)
-
     return cci
 
 def calculate_macd(close, fast=12, slow=26, signal=9):
     """Calculate MACD (12,26,9)"""
-
     ema_fast = close.ewm(span=fast, adjust=False).mean()
     ema_slow = close.ewm(span=slow, adjust=False).mean()
 
@@ -147,6 +117,84 @@ def calculate_macd(close, fast=12, slow=26, signal=9):
 
     return macd_line, signal_line, histogram
 
+def get_etf_volume_signals(data):
+    """ETF-optimized volume signals"""
+
+    if data is None or data.empty or len(data) < 40:
+        return {"Status": "Not enough data"}
+
+    vol = data['Volume'].dropna()
+    close = data['Close'].dropna()
+
+    if len(vol) < 40:
+        return {"Status": "Not enough data"}
+
+    # --- Rolling averages ---
+    avg5 = vol.rolling(5).mean().iloc[-1]
+    avg20 = vol.rolling(20).mean().iloc[-1]
+    avg40 = vol.rolling(40).mean().iloc[-1]
+
+    latest_vol = vol.iloc[-1]
+
+    if pd.isna(avg5) or pd.isna(avg20) or pd.isna(avg40):
+        return {"Status": "Insufficient data"}
+
+    # -------------------------
+    # 1️⃣ Volume Spike (relative)
+    # -------------------------
+    spike_ratio = latest_vol / avg20
+
+    if spike_ratio >= 2:
+        spike = "Unusual Spike"
+    elif spike_ratio >= 1.5:
+        spike = "High Activity"
+    elif spike_ratio >= 1.1:
+        spike = "Above Normal"
+    else:
+        spike = "Normal"
+
+    # -------------------------
+    # 2️⃣ Trend (short vs medium)
+    # -------------------------
+    trend_ratio = avg5 / avg40
+
+    if trend_ratio > 1.2:
+        trend = "Strong Rising Interest"
+    elif trend_ratio > 1.05:
+        trend = "Rising Interest"
+    elif trend_ratio < 0.85:
+        trend = "Falling Interest"
+    else:
+        trend = "Stable"
+
+    # -------------------------
+    # 3️⃣ Price confirmation
+    # -------------------------
+    price_change = close.pct_change().iloc[-1]
+
+    if price_change > 0 and spike_ratio > 1.2:
+        confirm = "Bullish Participation"
+    elif price_change < 0 and spike_ratio > 1.2:
+        confirm = "Distribution Pressure"
+    else:
+        confirm = "Low Conviction"
+
+    # -------------------------
+    # 4️⃣ Liquidity context
+    # -------------------------
+    if avg20 > 1_000_000:
+        liquidity = "Highly Liquid"
+    elif avg20 > 200_000:
+        liquidity = "Moderately Liquid"
+    else:
+        liquidity = "Thinly Traded"
+
+    return {
+        "Volume Activity": spike,
+        "Volume Trend": trend,
+        "Participation Signal": confirm,
+        "Liquidity Profile": liquidity
+    }
 def analyze_volume_sentiment(vol):
     """Analyze volume sentiment across different time periods"""
     periods = [15, 21, 63, 126, 252]
@@ -188,10 +236,9 @@ def analyze_volume_sentiment(vol):
             sentiments.append(f"Negative ↓ ({pct_change:.1f}%)")
             sentiment_colors.append("red")
         else:
-            sentiments.append(f"Neutral → ({pct_change:.1f}%)")
+            sentiments.append(f"Neutral → ({pct_change:.2f}%)")
             sentiment_colors.append("gray")
 
-    # Calculate overall sentiment
     positive_count = sum(1 for s in sentiments if "Positive" in s)
     negative_count = sum(1 for s in sentiments if "Negative" in s)
 
@@ -224,11 +271,9 @@ def create_volume_charts(data, symbol):
 
         vol_avg = vol_subset.rolling(w, min_periods=1).mean()
 
-        # Create figure with two y-axes
         fig = Figure(figsize=(10, 4))
         ax1 = fig.add_subplot(111)
 
-        # Plot volume bars with darker color
         ax1.bar(vol_subset.index, vol_subset.values, alpha=0.7, color='#4169E1', label='Volume', width=0.8)
         ax1.plot(vol_avg.index, vol_avg.values, color='#FF8C00', linewidth=2, label=f'{w}-Day Vol Avg')
         ax1.set_xlabel('Date', fontsize=10)
@@ -238,13 +283,11 @@ def create_volume_charts(data, symbol):
         ax1.grid(True, alpha=0.3)
         ax1.set_title(f"{name} Analysis (Last {buffer} days)", fontsize=11, fontweight='bold')
 
-        # Create second y-axis for price
         ax2 = ax1.twinx()
         ax2.plot(close_subset.index, close_subset.values, color='#DC143C', linewidth=2, label='Close Price')
         ax2.set_ylabel('Price (₹)', color='#DC143C', fontsize=10)
         ax2.tick_params(axis='y', labelcolor='#DC143C')
 
-        # Combine legends
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=9)
@@ -257,14 +300,11 @@ def create_volume_charts(data, symbol):
 def fetch_etf_data(ticker, period="2y"):
     """Fetch ETF data from yfinance"""
     try:
-        # Explicitly set auto_adjust to avoid future warning
         data = yf.download(ticker, period=period, progress=False, auto_adjust=False)
         if data.empty:
             return None
 
-        # Handle MultiIndex columns (when yfinance returns multiple tickers)
         if isinstance(data.columns, pd.MultiIndex):
-            # Flatten the MultiIndex by taking the first level
             data.columns = data.columns.get_level_values(0)
 
         return data
@@ -274,19 +314,14 @@ def fetch_etf_data(ticker, period="2y"):
 
 def create_technical_charts(data, symbol):
     """Create interactive technical analysis charts using Plotly with hover tooltips"""
-
-    # Make a copy to avoid modifying original data
     data = data.copy()
 
-    # Ensure index is datetime
     if not isinstance(data.index, pd.DatetimeIndex):
         data.index = pd.to_datetime(data.index)
 
-    # Reset any MultiIndex columns if present
     if isinstance(data.columns, pd.MultiIndex):
         data.columns = data.columns.get_level_values(0)
 
-    # Calculate indicators
     data['SMA_20'] = data['Close'].rolling(window=20).mean()
     data['SMA_50'] = data['Close'].rolling(window=50).mean()
     data['RSI'] = calculate_rsi(data)
@@ -431,7 +466,6 @@ def create_technical_charts(data, symbol):
 def display_indicator_summary(data, symbol):
     """Display latest indicator values in a formatted box"""
     try:
-        # Safely extract latest values
         latest_rsi = data['RSI'].dropna().iloc[-1] if not data['RSI'].dropna().empty else None
         latest_mfi = data['MFI'].dropna().iloc[-1] if not data['MFI'].dropna().empty else None
         latest_atr = data['ATR'].dropna().iloc[-1] if not data['ATR'].dropna().empty else None
@@ -442,7 +476,6 @@ def display_indicator_summary(data, symbol):
         latest_sma_50 = data['SMA_50'].dropna().iloc[-1] if not data['SMA_50'].dropna().empty else None
         latest_macd = data['MACD'].dropna().iloc[-1] if not data['MACD'].dropna().empty else None
 
-        # Handle Close price - could be Series or scalar
         close_val = data['Close'].iloc[-1]
         if isinstance(close_val, pd.Series):
             latest_close = close_val.values[0]
@@ -467,7 +500,6 @@ def display_indicator_summary(data, symbol):
     </div>
     """, unsafe_allow_html=True)
 
-    # Row 1: Price and Moving Averages
     st.markdown("#### Price & Moving Averages")
     col1, col2, col3, col4 = st.columns(4)
 
@@ -510,7 +542,6 @@ def display_indicator_summary(data, symbol):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Row 2: Momentum Indicators (Expanded to 5 columns)
     st.markdown("#### Momentum Indicators")
     col1, col2, col3, col4, col5 = st.columns(5)
 
@@ -576,7 +607,6 @@ def display_indicator_summary(data, symbol):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Return dictionary for comparison use
     return {
         'close': latest_close,
         'sma_20': latest_sma_20,
@@ -589,6 +619,7 @@ def display_indicator_summary(data, symbol):
         'emv': latest_emv,
         'macd': latest_macd
     }
+
 def get_technical_indicators(etf_row):
     """Helper function to get technical indicators for an ETF"""
     yf_ticker = str(etf_row.get('yfinance_ticker', '')).strip()
@@ -599,7 +630,6 @@ def get_technical_indicators(etf_row):
     try:
         etf_data = fetch_etf_data(yf_ticker)
         if etf_data is not None and not etf_data.empty:
-            # Calculate all indicators
             etf_data['SMA_20'] = etf_data['Close'].rolling(window=20).mean()
             etf_data['SMA_50'] = etf_data['Close'].rolling(window=50).mean()
             etf_data['RSI'] = calculate_rsi(etf_data)
@@ -609,7 +639,6 @@ def get_technical_indicators(etf_row):
             etf_data['MD'] = calculate_mean_deviation(etf_data['High'], etf_data['Low'], etf_data['Close'], period=20)
             etf_data['EMV'] = calculate_emv(etf_data)
 
-            # Extract latest values
             return {
                 'sma_20': etf_data['SMA_20'].dropna().iloc[-1] if not etf_data['SMA_20'].dropna().empty else None,
                 'sma_50': etf_data['SMA_50'].dropna().iloc[-1] if not etf_data['SMA_50'].dropna().empty else None,
@@ -771,6 +800,22 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+# Add mobile navigation hint
+st.markdown("""
+<div style="
+    background: #FEF3C7;
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 4px solid #F59E0B;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: block;
+">
+    <p style="color: #92400E; margin: 0; font-weight: 600; font-size: 14px;">
+        📱 <strong>Mobile Users:</strong> Tap the <strong>&gt;&gt;</strong> icon (top-left) to open filters and choose ETFs
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <div style="
@@ -800,7 +845,6 @@ if not os.path.exists(FILE):
 df = pd.read_csv(FILE, dtype=str)
 df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
-
 # ============================================================
 # LOAD HOLDINGS DATA
 # ============================================================
@@ -812,7 +856,6 @@ if os.path.exists(HOLDINGS_FILE):
         df_holdings = pd.read_csv(HOLDINGS_FILE)
         df_holdings.columns = df_holdings.columns.str.strip()
 
-        # Group by isin_code since data is now fixed with unique ISINs per ETF
         for isin_code, group in df_holdings.groupby('isin_code'):
             if pd.isna(isin_code) or str(isin_code).strip() == '':
                 continue
@@ -820,7 +863,6 @@ if os.path.exists(HOLDINGS_FILE):
             first_row = group.iloc[0]
             etf_name = str(first_row.get('ETF', '')).strip()
 
-            # Skip rows where ETF name is empty
             if not etf_name or etf_name.lower() == 'nan':
                 continue
 
@@ -829,7 +871,6 @@ if os.path.exists(HOLDINGS_FILE):
             holdings_data['ETF'] = etf_name
             holdings_data['NSE TICKER'] = str(first_row.get('SYMBOL', '')).strip()
 
-            # Filter valid holdings - ensure Holding and Amount columns exist and are not null
             valid_holdings = group[
                 (group['Holding'].notna()) &
                 (group['Holding'] != '') &
@@ -837,27 +878,20 @@ if os.path.exists(HOLDINGS_FILE):
                 (group['Amount'] != '')
             ].copy()
 
-            # Convert Amount to numeric, coerce errors to NaN
             valid_holdings['Amount'] = pd.to_numeric(valid_holdings['Amount'], errors='coerce')
-
-            # Drop rows where Amount conversion failed
             valid_holdings = valid_holdings[valid_holdings['Amount'].notna()]
-
-            # Sort by Amount descending and take top 10
             valid_holdings = valid_holdings.sort_values('Amount', ascending=False).head(10)
 
             total_weight = 0
             for idx, row in valid_holdings.iterrows():
                 holding_name = str(row['Holding']).strip()
 
-                # Skip if holding name is empty or 'nan'
                 if not holding_name or holding_name.lower() == 'nan':
                     continue
 
                 try:
                     amount = float(row['Amount'])
 
-                    # Skip if amount is 0 or negative
                     if amount <= 0:
                         continue
 
@@ -869,15 +903,10 @@ if os.path.exists(HOLDINGS_FILE):
             if total_weight > 0:
                 holdings_data['Total'] = str(round(total_weight, 2))
 
-            # Use ISIN as key since data is now fixed
             holdings_dict[str(isin_code).strip()] = holdings_data
 
-            # Extract market cap data
-            # Column 10 (index 10 after 0-indexing) has market cap category
-            # Column 11 (index 11) has the percentage
             marketcap_data = {}
             for idx, row in group.iterrows():
-                # Get the 11th and 12th columns (indices 10 and 11)
                 row_list = row.tolist()
                 if len(row_list) >= 12:
                     market_cap_cat = str(row_list[10]).strip() if pd.notna(row_list[10]) and str(row_list[10]).strip() else None
@@ -890,7 +919,6 @@ if os.path.exists(HOLDINGS_FILE):
                             pass
 
             if marketcap_data:
-                # Use ISIN as key
                 marketcap_dict[str(isin_code).strip()] = marketcap_data
 
     except Exception as e:
@@ -915,7 +943,6 @@ df["_text"] = (
     df["category"].astype(str).str.lower() + " " +
     df["benchmark_index"].astype(str).str.lower()
 )
-
 # ============================================================
 # LOAD PRICE DATA
 # ============================================================
@@ -1134,10 +1161,8 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Get list of all ETF names for autocomplete
     all_etf_names = sorted(df["etf"].dropna().unique().tolist())
 
-    # First ETF selection with autocomplete
     st.markdown("**First ETF:**")
     search_term_1 = st.text_input(
         "Type to search First ETF",
@@ -1147,7 +1172,6 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-    # Filter ETFs based on search term
     if search_term_1:
         filtered_etfs_1 = [etf for etf in all_etf_names if search_term_1.lower() in etf.lower()]
         if filtered_etfs_1:
@@ -1165,7 +1189,6 @@ with st.sidebar:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Second ETF selection with autocomplete
     st.markdown("**Second ETF:**")
     search_term_2 = st.text_input(
         "Type to search Second ETF",
@@ -1175,7 +1198,6 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-    # Filter ETFs based on search term
     if search_term_2:
         filtered_etfs_2 = [etf for etf in all_etf_names if search_term_2.lower() in etf.lower()]
         if filtered_etfs_2:
@@ -1193,7 +1215,6 @@ with st.sidebar:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Button to open comparison
     if st.session_state.compare_etf_1 and st.session_state.compare_etf_2:
         col_open, col_close = st.columns(2)
         with col_open:
@@ -1214,11 +1235,9 @@ def show_comparison_modal():
     compare_etf_1 = st.session_state.compare_etf_1
     compare_etf_2 = st.session_state.compare_etf_2
 
-    # Get data for both ETFs
     etf1_data = df[df["etf"] == compare_etf_1].iloc[0]
     etf2_data = df[df["etf"] == compare_etf_2].iloc[0]
 
-    # Check if they have the same benchmark
     benchmark1 = str(etf1_data.get("benchmark_index", "")).strip()
     benchmark2 = str(etf2_data.get("benchmark_index", "")).strip()
 
@@ -1255,13 +1274,8 @@ def show_comparison_modal():
         </div>
         """.format(compare_etf_1, benchmark1, compare_etf_2, benchmark2), unsafe_allow_html=True)
 
-    # Function to get price from price data
     def get_price(etf_row):
         ticker = str(etf_row.get("symbol", "")).strip().upper()
-
-        # Debug: Show what we're looking for
-        # st.write(f"Looking for ticker: {ticker}")
-
         if not df_price.empty:
             price_row = df_price[df_price["symbol"] == ticker]
             if not price_row.empty:
@@ -1269,9 +1283,6 @@ def show_comparison_modal():
                 if not pd.isna(ltp_val):
                     return ltp_val
             else:
-                # Try alternate symbols
-                etf_name = str(etf_row.get("etf", "")).strip()
-                # Check if any symbol contains part of the ETF name
                 if ticker:
                     alt_matches = df_price[df_price["symbol"].str.contains(ticker[:5], na=False, case=False)]
                     if not alt_matches.empty:
@@ -1280,25 +1291,15 @@ def show_comparison_modal():
                             return ltp_val
         return None
 
-    # Create two columns for the ETF cards
     col1, col2 = st.columns(2)
 
-    # Get technical indicators for both ETFs
     with st.spinner("Fetching technical indicators..."):
         tech1 = get_technical_indicators(etf1_data)
         tech2 = get_technical_indicators(etf2_data)
 
-    # Get prices
     price1 = get_price(etf1_data)
     price2 = get_price(etf2_data)
 
-    # DEBUG: Uncomment to see symbol matching info
-    # st.info(f"ETF 1 Symbol: {etf1_data.get('symbol', 'N/A')} | Price Found: {price1 is not None}")
-    # st.info(f"ETF 2 Symbol: {etf2_data.get('symbol', 'N/A')} | Price Found: {price2 is not None}")
-    # if not df_price.empty:
-    #     st.write("Available symbols in price file:", df_price['symbol'].unique()[:20])
-
-    # ETF 1 Card
     with col1:
         st.markdown(f"""
         <div style="
@@ -1313,7 +1314,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # Price
         if price1:
             st.markdown(f"""
             <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1329,7 +1329,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # AUM
         aum1 = etf1_data.get('aum', 'N/A')
         st.markdown(f"""
         <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1338,7 +1337,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # Years Active
         years1 = etf1_data.get('years_active', 'N/A')
         st.markdown(f"""
         <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1347,7 +1345,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # RSI
         if tech1 and tech1.get("rsi") is not None:
             rsi1 = tech1["rsi"]
             rsi_color = "#dc2626" if rsi1 > 70 else ("#16a34a" if rsi1 < 30 else "#0f172a")
@@ -1367,7 +1364,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # MFI
         if tech1 and tech1.get("mfi") is not None:
             mfi1 = tech1["mfi"]
             mfi_color = "#dc2626" if mfi1 > 80 else ("#16a34a" if mfi1 < 20 else "#0f172a")
@@ -1387,7 +1383,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # Tracking Error
         te1 = etf1_data.get('overall_tracking_error', 'N/A')
         st.markdown(f"""
         <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1396,7 +1391,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # Tracking Difference
         td1 = etf1_data.get('overall_tracking_difference', 'N/A')
         st.markdown(f"""
         <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1405,7 +1399,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # CCI
         if tech1 and tech1.get("cci") is not None:
             cci1 = tech1["cci"]
             cci_color = "#dc2626" if cci1 > 100 else ("#16a34a" if cci1 < -100 else "#0f172a")
@@ -1418,7 +1411,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # SMA 20
         if tech1 and tech1.get("sma_20") is not None:
             sma20 = tech1["sma_20"]
             st.markdown(f"""
@@ -1428,7 +1420,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # SMA 50
         if tech1 and tech1.get("sma_50") is not None:
             sma50 = tech1["sma_50"]
             st.markdown(f"""
@@ -1438,7 +1429,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-    # ETF 2 Card
     with col2:
         st.markdown(f"""
         <div style="
@@ -1453,7 +1443,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # Price
         if price2:
             st.markdown(f"""
             <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1469,7 +1458,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # AUM
         aum2 = etf2_data.get('aum', 'N/A')
         st.markdown(f"""
         <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1478,7 +1466,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # Years Active
         years2 = etf2_data.get('years_active', 'N/A')
         st.markdown(f"""
         <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1487,7 +1474,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # RSI
         if tech2 and tech2.get("rsi") is not None:
             rsi2 = tech2["rsi"]
             rsi_color = "#dc2626" if rsi2 > 70 else ("#16a34a" if rsi2 < 30 else "#0f172a")
@@ -1507,7 +1493,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # MFI
         if tech2 and tech2.get("mfi") is not None:
             mfi2 = tech2["mfi"]
             mfi_color = "#dc2626" if mfi2 > 80 else ("#16a34a" if mfi2 < 20 else "#0f172a")
@@ -1527,7 +1512,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # Tracking Error
         te2 = etf2_data.get('overall_tracking_error', 'N/A')
         st.markdown(f"""
         <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1536,7 +1520,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # Tracking Difference
         td2 = etf2_data.get('overall_tracking_difference', 'N/A')
         st.markdown(f"""
         <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 12px;">
@@ -1545,7 +1528,6 @@ def show_comparison_modal():
         </div>
         """, unsafe_allow_html=True)
 
-        # CCI
         if tech2 and tech2.get("cci") is not None:
             cci2 = tech2["cci"]
             cci_color = "#dc2626" if cci2 > 100 else ("#16a34a" if cci2 < -100 else "#0f172a")
@@ -1558,7 +1540,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # SMA 20
         if tech2 and tech2.get("sma_20") is not None:
             sma20 = tech2["sma_20"]
             st.markdown(f"""
@@ -1568,7 +1549,6 @@ def show_comparison_modal():
             </div>
             """, unsafe_allow_html=True)
 
-        # SMA 50
         if tech2 and tech2.get("sma_50") is not None:
             sma50 = tech2["sma_50"]
             st.markdown(f"""
@@ -1649,7 +1629,7 @@ with col2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ETF SELECTOR - More Prominent
+# ETF SELECTOR
 st.markdown("""
 <div style="
     background: #EDF2F7;
@@ -1674,7 +1654,6 @@ selected_etf = st.selectbox(
 if selected_etf:
     row = result[result["etf"] == selected_etf].iloc[0]
 
-    # Create a compact header with ETF name and key metrics in one row
     st.markdown(f"""
     <div style="
         background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%);
@@ -1705,11 +1684,9 @@ if selected_etf:
     </div>
     """, unsafe_allow_html=True)
 
-    # Create tabs for different sections
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview & Holdings", "💹 Price Info", "📈 Technical Analysis", "ℹ️ Details"])
 
     with tab1:
-        # Overview section with compact cards
         col1, col2, col3 = st.columns(3)
 
         with col1:
@@ -1738,7 +1715,6 @@ if selected_etf:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Benchmark info
         st.markdown(f"""
         <div style="background: #EDF2F7; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
             <span style="color: #4A5568; font-size: 12px; font-weight: 600;">BENCHMARK INDEX</span>
@@ -1746,7 +1722,6 @@ if selected_etf:
         </div>
         """, unsafe_allow_html=True)
 
-        # HOLDINGS SECTION
         etf_isin = str(row.get('isin_code', '')).strip()
 
         if etf_isin and etf_isin in holdings_dict:
@@ -1768,21 +1743,16 @@ if selected_etf:
 
             for key, value in etf_data.items():
                 if key not in skip_keys:
-                    # Check if value exists and is not empty
                     if value is None or str(value).strip() == '' or str(value).strip().lower() == 'nan':
                         continue
                     try:
-                        # Clean company name
                         company_name = key.replace('Ltd.', '').replace('Ltd,', '').replace('Ltd', '').replace('Ordinary Shares', '').replace('Class A', '').replace('Class B', '').replace('Class H', '').replace('Limited', '').strip()
 
-                        # Skip if company name is empty after cleaning
                         if not company_name:
                             continue
 
-                        # Try to convert weight to float
                         weight = float(value)
 
-                        # Skip if weight is 0 or negative
                         if weight <= 0:
                             continue
 
@@ -1794,16 +1764,13 @@ if selected_etf:
                         continue
 
             if holdings_data:
-                # Create two columns: Market Cap Pie Chart and Top Holdings Bar Chart
                 col_pie, col_bar = st.columns([1, 1.5])
 
-                # Debug info - show how many holdings we have
                 num_holdings = len(holdings_data)
                 if num_holdings < 10:
                     st.info(f"ℹ️ Found {num_holdings} holdings for this ETF")
 
                 with col_pie:
-                    # Market Cap Pie Chart
                     if etf_isin in marketcap_dict:
                         marketcap_data = marketcap_dict[etf_isin]
 
@@ -1819,23 +1786,19 @@ if selected_etf:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # Create pie chart data
                         pie_labels = list(marketcap_data.keys())
                         pie_values = list(marketcap_data.values())
 
-                        # Professional colorful colors for pie chart
                         colors = {
-                            'Large Cap': '#DC2626',  # Red
-                            'Mid Cap': '#16A34A',    # Green
-                            'Small Cap': '#2563EB'   # Blue
+                            'Large Cap': '#DC2626',
+                            'Mid Cap': '#16A34A',
+                            'Small Cap': '#2563EB'
                         }
                         pie_colors = [colors.get(label, '#CBD5E0') for label in pie_labels]
 
-                        # Create matplotlib donut chart
                         fig_pie = Figure(figsize=(6, 4))
                         ax_pie = fig_pie.add_subplot(111)
 
-                        # Create donut chart
                         wedges, texts, autotexts = ax_pie.pie(
                             pie_values,
                             labels=pie_labels,
@@ -1846,12 +1809,10 @@ if selected_etf:
                             textprops={'fontsize': 10, 'weight': 'bold'}
                         )
 
-                        # Make all text bold
                         for text in texts:
                             text.set_fontweight('bold')
                             text.set_fontsize(10)
 
-                        # Make percentage text white and bold
                         for autotext in autotexts:
                             autotext.set_color('white')
                             autotext.set_fontsize(10)
@@ -1862,7 +1823,6 @@ if selected_etf:
 
                         st.pyplot(fig_pie)
 
-                        # Show percentages in a clean format
                         st.markdown("""
                         <div style="
                             background: white;
@@ -1890,7 +1850,6 @@ if selected_etf:
                         st.info("Market cap data not available")
 
                 with col_bar:
-                    # Top 10 Holdings Bar Chart (Smaller)
                     st.markdown("""
                     <div style="
                         background: white;
@@ -1905,17 +1864,14 @@ if selected_etf:
 
                     holdings_chart_df = pd.DataFrame(holdings_data)
 
-                    # Sort by weight descending
                     holdings_chart_df = holdings_chart_df.sort_values('Weight', ascending=False)
 
-                    # Show all holdings (up to 10 from data source)
-                    # If more than 10, take top 10
                     if len(holdings_chart_df) > 10:
                         holdings_chart_df = holdings_chart_df.head(10)
 
                     color_scale = alt.Scale(
                         domain=[holdings_chart_df['Weight'].min(), holdings_chart_df['Weight'].max()],
-                        range=['#93C5FD', '#1E40AF']  # Brighter blue gradient
+                        range=['#93C5FD', '#1E40AF']
                     )
 
                     base = alt.Chart(holdings_chart_df).encode(
@@ -1984,86 +1940,78 @@ if selected_etf:
             st.info("📊 Holdings data not available for this ETF.")
 
     with tab2:
-        # PRICE INFORMATION TAB
-        st.markdown("""
-        <div style="
-            background: #EDF2F7;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            text-align: center;
-        ">
-            <h3 style="color: #2D3748; margin: 0; font-size: 16px;">💹 Current Price Information</h3>
-        </div>
-        """, unsafe_allow_html=True)
+        st.subheader("💹 Current Price Information")
 
-        if not df_price.empty:
-            ticker = str(row.get("symbol", "")).strip().upper()
-            price_row = df_price[df_price["symbol"] == ticker]
-
-            if not price_row.empty:
-                ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
-                nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
-
-                # Check if at least one value is available
-                if pd.isna(ltp_val) and pd.isna(nav_val):
-                    st.warning("⚠️ Price data unavailable or invalid for this ETF.")
-                else:
-                    # Build HTML string ensuring NO leading whitespace to avoid code block rendering
-                    price_html = '<div style="background: white; padding: 20px; border-radius: 10px; margin-top: 15px; box-shadow: 0 3px 6px rgba(0,0,0,0.1);">'
-
-                    if not pd.isna(ltp_val):
-                        price_html += f"<p style='margin: 8px 0; font-size: 16px;'><span style='color: #1976D2; font-weight: bold;'>LTP:</span> <span style='color: #000; font-size: 20px; font-weight: bold;'>₹ {ltp_val:.2f}</span></p>"
-                    else:
-                        price_html += "<p style='margin: 8px 0; font-size: 16px;'><span style='color: #1976D2; font-weight: bold;'>LTP:</span> <span style='color: #999; font-size: 16px;'>N/A</span></p>"
-
-                    if not pd.isna(nav_val):
-                        price_html += f"<p style='margin: 8px 0; font-size: 16px;'><span style='color: #388E3C; font-weight: bold;'>NAV:</span> <span style='color: #000; font-size: 20px; font-weight: bold;'>₹ {nav_val:.2f}</span></p>"
-                    else:
-                        price_html += "<p style='margin: 8px 0; font-size: 16px;'><span style='color: #388E3C; font-weight: bold;'>NAV:</span> <span style='color: #999; font-size: 16px;'>N/A</span></p>"
-
-                    price_html += '</div>'
-
-                    # Render HTML
-                    st.markdown(price_html, unsafe_allow_html=True)
-
-                    # Create chart only if at least one value exists
-                    chart_data = []
-                    if not pd.isna(ltp_val):
-                        chart_data.append({"Metric": "LTP", "Value": ltp_val})
-                    if not pd.isna(nav_val):
-                        chart_data.append({"Metric": "NAV", "Value": nav_val})
-
-                    if chart_data:
-                        price_df = pd.DataFrame(chart_data)
-
-                        price_chart = alt.Chart(price_df).mark_bar(
-                            size=60
-                        ).encode(
-                            x=alt.X("Metric:N", axis=alt.Axis(labelFontWeight="bold", labelFontSize=14)),
-                            y=alt.Y("Value:Q", title="₹ Value"),
-                            color=alt.Color("Metric:N", scale=alt.Scale(range=["#42A5F5", "#66BB6A"]), legend=None),
-                            tooltip=["Metric", alt.Tooltip("Value:Q", format=".2f")]
-                        ).properties(height=300)
-
-                        st.altair_chart(price_chart, width='stretch')
-            else:
-                # Show which symbol was being looked for
-                st.warning(f"⚠️ Price data not available for ticker: **{ticker}**")
-                st.info("💡 **Possible reasons:**\n"
-                       "- This ETF may not be listed in the price data file\n"
-                       "- The symbol might be different in the price file\n"
-                       "- Price data may not have been updated recently")
-
-                # Show alternate data source suggestion
-                if yf_ticker := str(row.get('yfinance_ticker', '')).strip():
-                    st.info(f"📊 You can view technical analysis in the 'Technical Analysis' tab using Yahoo Finance data")
-        else:
+        if df_price.empty:
             st.warning("⚠️ Price data file not found.")
+            st.stop()
+
+        ticker = str(row.get("symbol", "")).strip().upper()
+        price_row = df_price[df_price["symbol"] == ticker]
+
+        if price_row.empty:
+            st.warning(f"⚠️ Price data not available for ticker: {ticker}")
+            st.stop()
+
+        ltp_val = pd.to_numeric(price_row.iloc[0]["ltp"], errors="coerce")
+        nav_val = pd.to_numeric(price_row.iloc[0]["nav"], errors="coerce")
+
+        col1, col2 = st.columns(2)
+
+        # LTP / NAV
+        with col1:
+            st.metric("LTP", f"₹ {ltp_val:.2f}" if not pd.isna(ltp_val) else "N/A")
+            st.metric("NAV", f"₹ {nav_val:.2f}" if not pd.isna(nav_val) else "N/A")
+
+        # Premium / Discount
+        with col2:
+            if pd.isna(ltp_val) or pd.isna(nav_val) or nav_val == 0:
+                st.info("Premium/Discount requires both LTP and NAV")
+            else:
+                premium_pct = ((ltp_val - nav_val) / nav_val) * 100
+
+                if -0.5 <= premium_pct <= 0.5:
+                    label = "Fair Value"
+                elif abs(premium_pct) <= 1.5:
+                    label = "Mild"
+                elif abs(premium_pct) <= 3:
+                    label = "Moderate"
+                else:
+                    label = "HIGH"
+
+                st.metric("Premium / Discount", f"{premium_pct:+.2f}%", label)
+
+            st.caption("""
+            Guide:
+            - -0.5% to 0.5% → Fair  
+            - 0.5–1.5% → Mild  
+            - 1.5–3% → Moderate  
+            - >3% → High
+            """)
+
+            # Bar Chart
+            if not pd.isna(ltp_val) and not pd.isna(nav_val):
+                chart_df = pd.DataFrame({
+                    "Metric": ["LTP", "NAV"],
+                    "Value": [ltp_val, nav_val]
+                })
+
+                chart = alt.Chart(chart_df).mark_bar(size=50).encode(
+                    x=alt.X('Metric', axis=alt.Axis(title=None)),
+                    y=alt.Y('Value', axis=alt.Axis(title='Value (₹)')),
+                    color=alt.Color('Metric',
+                            scale=alt.Scale(
+                                domain=['LTP','NAV'],
+                                range=['#FEB2B2','#90CDF4']
+                            ),
+                            legend=None)
+                ).properties(height=300)
+
+                st.altair_chart(chart, use_container_width=True)
+
+    
 
     with tab3:
-        # TECHNICAL ANALYSIS TAB
         yfinance_ticker = str(row.get('yfinance_ticker', '')).strip()
 
         if yfinance_ticker:
@@ -2073,10 +2021,8 @@ if selected_etf:
                 if etf_data is not None and not etf_data.empty:
                     charts, analyzed_data = create_technical_charts(etf_data, selected_etf)
 
-                    # Display indicator summary
                     display_indicator_summary(analyzed_data, selected_etf)
 
-                    # Display charts in sub-tabs
                     subtab1, subtab2, subtab3, subtab4, subtab5, subtab6, subtab7, subtab8, subtab9 = st.tabs([
                         "📊 Moving Averages",
                         "📈 RSI",
@@ -2110,11 +2056,33 @@ if selected_etf:
                     with subtab7:
                         st.plotly_chart(charts[6], width='stretch')
 
+                    
                     with subtab8:
-                        # Volume Analysis
+
+                        # ----------- ADD THIS PART -----------
+                        vol_signals = get_etf_volume_signals(analyzed_data)
+
+                        st.markdown("### 📊 Volume Signals")
+
+                        col1, col2, col3 = st.columns(3)
+
+                        for col, (k, v) in zip([col1, col2, col3], vol_signals.items()):
+
+                            if "Bullish" in v or "Rising" in v or "High" in v:
+                                col.success(f"{k}: {v}")
+
+                            elif "Selling" in v or "Declining" in v:
+                                col.error(f"{k}: {v}")
+
+                            else:
+                                col.info(f"{k}: {v}")
+
+
+                        st.markdown("---")
+                        # ----------- END ADD -----------
+
                         period_names, sentiments, sentiment_colors, overall, overall_color = analyze_volume_sentiment(analyzed_data['Volume'])
 
-                        # Display sentiment summary
                         st.markdown("""
                         <div style="
                             background: white;
@@ -2142,7 +2110,6 @@ if selected_etf:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # Create and display volume charts
                         volume_charts = create_volume_charts(analyzed_data, selected_etf)
 
                         for i, fig in enumerate(volume_charts):
@@ -2156,7 +2123,6 @@ if selected_etf:
             st.info("📊 Technical analysis not available - yfinance ticker not found for this ETF.")
 
     with tab4:
-        # DETAILS TAB
         st.markdown("""
         <div style="
             background: #EDF2F7;
@@ -2169,7 +2135,6 @@ if selected_etf:
         </div>
         """, unsafe_allow_html=True)
 
-        # Display all information in a clean table-like format
         col_a, col_b = st.columns(2)
 
         with col_a:
@@ -2190,7 +2155,6 @@ if selected_etf:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Performance metrics
         st.markdown("""
         <div style="
             background: white;
@@ -2213,7 +2177,6 @@ if selected_etf:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Website link
         website = row.get("website_link", "")
         if isinstance(website, str) and website.strip():
             st.markdown(f"""
@@ -2271,94 +2234,3 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ============================================================
-# FOOTER
-# ============================================================
-st.markdown("---")
-st.markdown("""
-<div style="
-    background: #E2E8F0;
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-">
-    <p style="font-size: 16px; color: #2D3748; font-weight: bold; margin: 0;">
-        ✨ Conceptualized and vibe coded by Diganta Raychaudhuri ✨
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div style="
-    font-size: 11px;
-    color: #555;
-    text-align: left;
-    margin-top: 8px;
-    padding-left: 6px;
-">
-    Data taken from NSE, AMFI and AMC websites.
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div style="
-    font-size: 11px;
-    color: #444;
-    text-align: left;
-    margin-top: 10px;
-    line-height: 1.5;
-">
-    <strong>Disclaimer:</strong><br>
-    This website is for informational and educational purposes only.
-    It does not constitute investment advice.
-    Please consult a registered financial advisor before making investment decisions.
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div style="
-    font-size: 11px;
-    color: #444;
-    text-align: left;
-    margin-top: 6px;
-">
-    Copyright by Diganta Raychaudhuri
-</div>
-""", unsafe_allow_html=True)
-
-if price_file_mtime:
-    file_dt_str = datetime.datetime.fromtimestamp(price_file_mtime).strftime('%d %b %Y, %I:%M %p')
-    st.markdown(f"""
-    <div style="
-        font-size: 11px;
-        color: #444;
-        text-align: left;
-        margin-top: 6px;
-    ">
-        Price data updated on: {file_dt_str}
-    </div>
-    """, unsafe_allow_html=True)
-
-if latest_price_date is not None:
-    st.markdown(f"""
-    <div style="
-        font-size: 11px;
-        color: #444;
-        text-align: left;
-        margin-top: 6px;
-    ">
-        © {latest_price_date.year} Diganta Raychaudhuri. All rights reserved.
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown(f"""
-    <div style="
-        font-size: 11px;
-        color: #444;
-        text-align: left;
-        margin-top: 4px;
-    ">
-        Last updated: {latest_price_date.strftime('%d %b %Y')} (EOD, NSE)
-    </div>
-    """, unsafe_allow_html=True)
