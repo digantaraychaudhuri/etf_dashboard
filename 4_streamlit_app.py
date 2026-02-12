@@ -23,20 +23,14 @@ st.set_page_config(
     page_title="Indian ETF Tracker",
     layout="wide"
 )
-
-
-
-
 # ============================================================
 # MATPLOTLIB FONT CONFIGURATION
 # ============================================================
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica', 'sans-serif']
-
 # ============================================================
 # TECHNICAL ANALYSIS FUNCTIONS
 # ============================================================
-
 def calculate_rsi(data, period=14):
     """Calculate RSI indicator"""
     delta = data['Close'].diff()
@@ -45,7 +39,6 @@ def calculate_rsi(data, period=14):
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
     return rsi
-
 def calculate_mfi(high, low, close, volume, period=14):
     """Calculate Money Flow Index"""
     if isinstance(high, pd.Series) and isinstance(high.index, pd.MultiIndex):
@@ -1239,6 +1232,40 @@ with st.sidebar:
                     st.session_state.show_comparison = False
                     st.rerun()
 
+    # ============================================================
+    # SELECTION BY TRACKING ERROR (SIDEBAR)
+    # ============================================================
+    st.markdown("---")
+    st.markdown("""
+    <div style="
+        background: #2D3748;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        margin-top: 20px;
+    ">
+        <h3 style="color: white; margin: 0; text-align: center; font-size: 18px;">📊 Selection Based on Tracking Error</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Define Tracking Error ranges
+    te_ranges = {
+        "-0.15 to 0.10": (-0.15, 0.10),
+        "0.11 to 0.30": (0.11, 0.30),
+        "0.31 to 0.60": (0.31, 0.60),
+        "0.61 to 1.00": (0.61, 1.00),
+        "1.01+": (1.01, float('inf')),
+        "Data Not Available": (None, None)
+    }
+
+    st.markdown("**Select Tracking Error Ranges:**")
+
+    # Create checkboxes for each range
+    selected_te_ranges = []
+    for range_label in te_ranges.keys():
+        if st.checkbox(range_label, key=f"te_range_{range_label}"):
+            selected_te_ranges.append(range_label)
+
 # ============================================================
 # COMPARISON MODAL/WINDOW (Full Width - Main Area)
 # ============================================================
@@ -1574,11 +1601,13 @@ def show_comparison_modal():
 if st.session_state.show_comparison and st.session_state.compare_etf_1 and st.session_state.compare_etf_2:
     show_comparison_modal()
 
+
 # ============================================================
 # FILTER LOGIC
 # ============================================================
 mask = pd.Series(True, index=df.index)
 
+# Apply Asset Class filters
 if selected_amc != "All":
     mask &= df["_amc"] == selected_amc.lower()
 
@@ -1604,11 +1633,34 @@ if selected_asset == "DEBT" and sub_cat and sub_cat != "All":
     }
     mask &= df["_text"].str.contains(debt_map[sub_cat], na=False)
 
+# Apply Tracking Error filter if selected
+if selected_te_ranges:
+    df_temp = df.copy()
+    df_temp['te_numeric'] = pd.to_numeric(df_temp['overall_tracking_difference'], errors='coerce')
+    
+    te_mask = pd.Series(False, index=df_temp.index)
+    
+    for range_label in selected_te_ranges:
+        min_val, max_val = te_ranges[range_label]
+        
+        if min_val is None:  # Data Not Available
+            te_mask |= df_temp['te_numeric'].isna()
+        else:
+            te_mask |= ((df_temp['te_numeric'] >= min_val) & (df_temp['te_numeric'] <= max_val))
+    
+    # Combine with existing mask (AND operation - both filters must match)
+    mask &= te_mask
+
 result = df.loc[mask].copy()
+
+# Sort by tracking error if TE filter is active, otherwise keep default sorting
+if selected_te_ranges:
+    result['te_numeric'] = pd.to_numeric(result['overall_tracking_difference'], errors='coerce')
+    result = result.sort_values('te_numeric', na_position='last')
 
 # ============================================================
 # METRICS & ETF SELECTOR
-# ============================================================
+# ============================================================  
 col1, col2 = st.columns(2)
 
 with col1:
@@ -1654,11 +1706,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-selected_etf = st.selectbox(
-    "Select ETF",
-    [""] + sorted(result["etf"].dropna().unique().tolist()),
-    label_visibility="collapsed"
-)
+# Check if ETF was selected from Tracking Error tool
+if 'te_selected_etf' in st.session_state and st.session_state.te_selected_etf:
+    selected_etf = st.session_state.te_selected_etf
+    # Clear the session state after using it
+    st.session_state.te_selected_etf = None
+else:
+    selected_etf = st.selectbox(
+        "Select ETF",
+        [""] + sorted(result["etf"].dropna().unique().tolist()),
+        label_visibility="collapsed"
+    )
 
 # ============================================================
 # ETF DETAILS + HOLDINGS + PRICE + TECHNICAL ANALYSIS
@@ -2245,4 +2303,3 @@ st.markdown("""
     </a>
 </div>
 """, unsafe_allow_html=True)
-
