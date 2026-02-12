@@ -680,7 +680,28 @@ st.markdown("""
     0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
 }
+/* Mobile sidebar hint - only visible on mobile */
+.mobile-sidebar-hint {
+    display: none;
+    position: fixed;
+    top: 60px;
+    left: 10px;
+    background: #FEF3C7;
+    color: #92400E;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    z-index: 999;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    border: 1px solid #F59E0B;
+}
 
+@media (max-width: 768px) {
+    .mobile-sidebar-hint {
+        display: block;
+    }
+}
 .stApp {
     background-color: #F7FAFC;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -780,6 +801,12 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<div class="mobile-sidebar-hint">
+    👉 Slide to choose ETF
+</div>
+""", unsafe_allow_html=True)
+
 # ============================================================
 # HEADER
 # ============================================================
@@ -800,22 +827,7 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
-# Add mobile navigation hint
-st.markdown("""
-<div style="
-    background: #FEF3C7;
-    padding: 12px;
-    border-radius: 8px;
-    border-left: 4px solid #F59E0B;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    display: block;
-">
-    <p style="color: #92400E; margin: 0; font-weight: 600; font-size: 14px;">
-        📱 <strong>Mobile Users:</strong> Tap the <strong>&gt;&gt;</strong> icon (top-left) to open filters and choose ETFs
-    </p>
-</div>
-""", unsafe_allow_html=True)
+
 
 st.markdown("""
 <div style="
