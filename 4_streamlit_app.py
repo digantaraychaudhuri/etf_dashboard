@@ -1255,21 +1255,6 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
-    <div style="
-        background: #F0F9FF;
-        padding: 10px;
-        border-radius: 6px;
-        margin-bottom: 15px;
-        border-left: 3px solid #3B82F6;
-    ">
-        <p style="margin: 0; font-size: 11px; color: #1E40AF; font-weight: 600;">
-            ℹ️ Tracking Error measures the volatility of returns difference between ETF and benchmark. Lower values indicate more consistent tracking.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Define Tracking Error ranges based on actual data analysis
     te_ranges = {
         "0.00 to 0.05": (0.00, 0.05),
         "0.06 to 0.10": (0.06, 0.10),
