@@ -36,6 +36,70 @@ plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica', 'sans-se
 # ============================================================
 # TECHNICAL ANALYSIS FUNCTIONS
 # ============================================================
+def calculate_returns(data):
+    """Calculate multi-period returns"""
+
+    if data is None or data.empty:
+        return None
+
+    close = data['Close'].dropna()
+
+    if len(close) < 10:
+        return None
+
+    latest = close.iloc[-1]
+
+    periods = {
+        "3D": 3,
+        "5D": 5,
+        "1M": 21,
+        "1Y": 252,
+        "3Y": 756,
+        "5Y": 1260
+    }
+
+    results = {}            
+
+    for name, days in periods.items():
+        if len(close) > days:
+            past = close.iloc[-days]
+            results[name] = ((latest / past) - 1) * 100
+        else:
+            results[name] = None
+
+    return results
+
+def calculate_cagr(data):
+    """Calculate CAGR values"""
+
+    if data is None or data.empty:
+        return None
+
+    close = data['Close'].dropna()
+
+    latest = close.iloc[-1]
+
+    cagr_periods = {
+        "2Y CAGR": 2,
+        "3Y CAGR": 3,
+        "5Y CAGR": 5
+    }
+
+    results = {}
+
+    for label, years in cagr_periods.items():
+
+        days = 252 * years
+
+        if len(close) > days:
+            past = close.iloc[-days]
+            cagr = ((latest / past) ** (1/years) - 1) * 100
+            results[label] = cagr
+        else:
+            results[label] = None
+
+    return results
+
 
 def calculate_rsi(data, period=14):
     """Calculate RSI indicator"""
@@ -297,7 +361,7 @@ def create_volume_charts(data, symbol):
 
     return figs
 
-def fetch_etf_data(ticker, period="2y"):
+def fetch_etf_data(ticker, period="5y"):
     """Fetch ETF data from yfinance"""
     try:
         data = yf.download(ticker, period=period, progress=False, auto_adjust=False)
@@ -1791,7 +1855,7 @@ if selected_etf:
     </div>
     """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview & Holdings", "💹 Price Info", "📈 Technical Analysis", "ℹ️ Details"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview & Holdings", "💹 NAV Info", "📈 Technical Analysis", "ℹ️ Details", "📈 Return Analysis"])
 
     with tab1:
         col1, col2, col3 = st.columns(3)
@@ -2047,7 +2111,7 @@ if selected_etf:
             st.info("📊 Holdings data not available for this ETF.")
 
     with tab2:
-        st.subheader("💹 Current Price Information")
+        st.subheader("💹 Current NAV/LTP Information")
 
         if df_price.empty:
             st.warning("⚠️ Price data file not found.")
@@ -2303,6 +2367,60 @@ if selected_etf:
                 </a>
             </div>
             """, unsafe_allow_html=True)
+    
+    # ============================================================
+    # RETURN ANALYSIS TAB
+    # ============================================================
+    with tab5:
+
+        st.subheader("📈 Return Analysis")
+
+        yfinance_ticker = str(row.get('yfinance_ticker', '')).strip()
+
+        if yfinance_ticker:
+
+            with st.spinner("Calculating returns..."):
+                etf_hist = fetch_etf_data(yfinance_ticker)
+
+            # ======================
+            # ABSOLUTE RETURNS
+            # ======================
+            st.markdown("### 📊 Absolute Returns")
+
+            returns = calculate_returns(etf_hist)
+
+            if returns:
+
+                cols = st.columns(3)
+
+                for i, (period, val) in enumerate(returns.items()):
+
+                    if val is None:
+                        cols[i % 3].metric(period, "N/A")
+                    else:
+                        cols[i % 3].metric(period, f"{val:.2f}%", f"{val:.2f}%")
+
+            # ======================
+            # CAGR
+            # ======================
+            st.markdown("### 📈 CAGR")
+
+            cagr_values = calculate_cagr(etf_hist)
+
+            if cagr_values:
+
+                cols = st.columns(3)
+
+                for i, (label, val) in enumerate(cagr_values.items()):
+
+                    if val is None:
+                        cols[i % 3].metric(label, "N/A")
+                    else:
+                        cols[i % 3].metric(label, f"{val:.2f}%")
+
+        else:
+            st.warning("No yfinance ticker available for this ETF")
+
 
 # ============================================================
 # AI ASSISTANT SECTION
