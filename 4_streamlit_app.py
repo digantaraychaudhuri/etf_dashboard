@@ -23,14 +23,20 @@ st.set_page_config(
     page_title="Indian ETF Tracker",
     layout="wide"
 )
+
+
+
+
 # ============================================================
 # MATPLOTLIB FONT CONFIGURATION
 # ============================================================
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica', 'sans-serif']
+
 # ============================================================
 # TECHNICAL ANALYSIS FUNCTIONS
 # ============================================================
+
 def calculate_rsi(data, period=14):
     """Calculate RSI indicator"""
     delta = data['Close'].diff()
@@ -39,6 +45,7 @@ def calculate_rsi(data, period=14):
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
     return rsi
+
 def calculate_mfi(high, low, close, volume, period=14):
     """Calculate Money Flow Index"""
     if isinstance(high, pd.Series) and isinstance(high.index, pd.MultiIndex):
@@ -1233,7 +1240,7 @@ with st.sidebar:
                     st.rerun()
 
     # ============================================================
-    # SELECTION BY TRACKING ERROR (SIDEBAR)
+    # FILTER BY TRACKING ERROR (SIDEBAR)
     # ============================================================
     st.markdown("---")
     st.markdown("""
@@ -1244,20 +1251,34 @@ with st.sidebar:
         margin-bottom: 20px;
         margin-top: 20px;
     ">
-        <h3 style="color: white; margin: 0; text-align: center; font-size: 18px;">📊 Selection Based on Tracking Error</h3>
+        <h3 style="color: white; margin: 0; text-align: center; font-size: 18px;">📊 Filter by Tracking Error</h3>
     </div>
     """, unsafe_allow_html=True)
 
-    # Define Tracking Error ranges
-    te_ranges = {
-        "-0.15 to 0.10": (-0.15, 0.10),
-        "0.11 to 0.30": (0.11, 0.30),
-        "0.31 to 0.60": (0.31, 0.60),
-        "0.61 to 1.00": (0.61, 1.00),
-        "1.01+": (1.01, float('inf')),
-        "Data Not Available": (None, None)
-    }
+    st.markdown("""
+    <div style="
+        background: #F0F9FF;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        border-left: 3px solid #3B82F6;
+    ">
+        <p style="margin: 0; font-size: 11px; color: #1E40AF; font-weight: 600;">
+            ℹ️ Tracking Error measures the volatility of returns difference between ETF and benchmark. Lower values indicate more consistent tracking.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
+    # Define Tracking Error ranges based on actual data analysis
+    te_ranges = {
+        "0.00 to 0.05": (0.00, 0.05),
+        "0.06 to 0.10": (0.06, 0.10),
+        "0.11 to 0.20": (0.11, 0.20),
+        "0.21 to 0.40": (0.21, 0.40),
+        "0.41 to 0.60": (0.41, 0.60),
+        "0.61 to 1.00": (0.61, 1.00),
+        "1.01+": (1.01, float('inf'))
+    }
     st.markdown("**Select Tracking Error Ranges:**")
 
     # Create checkboxes for each range
@@ -1266,6 +1287,21 @@ with st.sidebar:
         if st.checkbox(range_label, key=f"te_range_{range_label}"):
             selected_te_ranges.append(range_label)
 
+    # Display selected count if any
+    if selected_te_ranges:
+        st.markdown(f"""
+        <div style="
+            background: #DBEAFE;
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 10px;
+            text-align: center;
+        ">
+            <p style="margin: 0; font-size: 12px; color: #1E40AF; font-weight: 600;">
+                {len(selected_te_ranges)} range(s) selected
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 # ============================================================
 # COMPARISON MODAL/WINDOW (Full Width - Main Area)
 # ============================================================
@@ -1578,7 +1614,6 @@ def show_comparison_modal():
                 <p style="margin: 6px 0 0 0; color: {cci_color}; font-size: 13px; font-weight: 600;">{cci_status}</p>
             </div>
             """, unsafe_allow_html=True)
-
         if tech2 and tech2.get("sma_20") is not None:
             sma20 = tech2["sma_20"]
             st.markdown(f"""
@@ -1636,7 +1671,8 @@ if selected_asset == "DEBT" and sub_cat and sub_cat != "All":
 # Apply Tracking Error filter if selected
 if selected_te_ranges:
     df_temp = df.copy()
-    df_temp['te_numeric'] = pd.to_numeric(df_temp['overall_tracking_difference'], errors='coerce')
+    # Use OVERALL_TRACKING_ERROR column (not tracking_difference)
+    df_temp['te_numeric'] = pd.to_numeric(df_temp['overall_tracking_error'], errors='coerce')
     
     te_mask = pd.Series(False, index=df_temp.index)
     
@@ -1655,8 +1691,24 @@ result = df.loc[mask].copy()
 
 # Sort by tracking error if TE filter is active, otherwise keep default sorting
 if selected_te_ranges:
-    result['te_numeric'] = pd.to_numeric(result['overall_tracking_difference'], errors='coerce')
-    result = result.sort_values('te_numeric', na_position='last')
+    result['te_numeric'] = pd.to_numeric(result['overall_tracking_error'], errors='coerce')
+    result = result.sort_values('te_numeric', na_position='first')
+
+# Display filter summary if tracking error filter is active
+if selected_te_ranges:
+    st.markdown(f"""
+    <div style="
+        background: #DBEAFE;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border-left: 3px solid #3B82F6;
+    ">
+        <p style="color: #1E40AF; margin: 0; font-weight: 600; font-size: 13px;">
+            📊 Filtering by {len(selected_te_ranges)} tracking error range(s)
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ============================================================
 # METRICS & ETF SELECTOR
