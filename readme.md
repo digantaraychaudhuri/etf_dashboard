@@ -1,4 +1,4 @@
-# 🇮🇳 Indian ETF Tracker
+# Indian ETF Tracker
 
 A comprehensive analytics dashboard for Indian Exchange Traded Funds (ETFs) built with Streamlit.  
 This platform helps investors explore, analyze, and compare ETFs using holdings data, price analytics, and technical indicators.
