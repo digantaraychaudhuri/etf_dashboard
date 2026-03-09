@@ -12,7 +12,6 @@ import seaborn as sns
 import warnings
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
 # Suppress font warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
 
@@ -23,9 +22,6 @@ st.set_page_config(
     page_title="Indian ETF Tracker",
     layout="wide"
 )
-
-
-
 
 # ============================================================
 # MATPLOTLIB FONT CONFIGURATION
@@ -70,15 +66,23 @@ def calculate_returns(data):
     return results
 
 def calculate_cagr(data):
-    """Calculate CAGR values"""
-
+    """Calculate CAGR values - uses available data intelligently"""
+    
     if data is None or data.empty:
         return None
 
     close = data['Close'].dropna()
 
-    latest = close.iloc[-1]
+    if len(close) < 2:
+        return None
 
+    latest = close.iloc[-1]
+    latest_date = close.index[-1]
+    earliest_date = close.index[0]
+    
+    # Calculate actual years of data available
+    total_years = (latest_date - earliest_date).days / 365.25
+    
     cagr_periods = {
         "2Y CAGR": 2,
         "3Y CAGR": 3,
@@ -87,19 +91,44 @@ def calculate_cagr(data):
 
     results = {}
 
-    for label, years in cagr_periods.items():
-
-        days = 252 * years
-
-        if len(close) > days:
-            past = close.iloc[-days]
-            cagr = ((latest / past) ** (1/years) - 1) * 100
-            results[label] = cagr
-        else:
+    for label, target_years in cagr_periods.items():
+        # Strategy: Use whatever data we have if it's close enough
+        # If we have at least 80% of the required period, calculate CAGR
+        min_required_years = target_years * 0.80  # 80% threshold
+        
+        if total_years < min_required_years:
+            results[label] = None
+            continue
+        
+        # Calculate the target date (going back target_years from latest)
+        target_date = latest_date - pd.Timedelta(days=int(target_years * 365.25))
+        
+        try:
+            if target_date < earliest_date:
+                # Target date is before our data starts
+                # Use all available data and mark it
+                past_price = close.iloc[0]
+                past_date = earliest_date
+            else:
+                # Find closest date to target
+                idx = close.index.get_indexer([target_date], method='nearest')[0]
+                past_price = close.iloc[idx]
+                past_date = close.index[idx]
+            
+            # Calculate actual years between dates
+            actual_years = (latest_date - past_date).days / 365.25
+            
+            # Calculate CAGR
+            if actual_years > 0.1:  # Need at least ~1 month of data
+                cagr = ((latest / past_price) ** (1/actual_years) - 1) * 100
+                results[label] = cagr
+            else:
+                results[label] = None
+                
+        except Exception as e:
             results[label] = None
 
-    return results
-
+    return results  
 
 def calculate_rsi(data, period=14):
     """Calculate RSI indicator"""
@@ -841,6 +870,18 @@ html, body, [class*="css"] {
 .stTabs [data-baseweb="tab-panel"] {
     padding-top: 20px;
 }
+/* Global Search Bar */
+.global-search-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+}
+.search-result-count {
+    font-size: 12px;
+    color: #718096;
+    margin-top: 4px;
+    text-align: right;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -1163,10 +1204,13 @@ STRATEGIC = {
     "BSE Enhanced Value": r"bse\s*enhanced\s*value",
     "BSE 200 Factor Indices": r"bse\s*200\s*equal\s*weight"
 }
-
 # ============================================================
 # FILTER UI - SIDEBAR
 # ============================================================
+# Initialize session state for active filter section
+if 'active_filter_section' not in st.session_state:
+    st.session_state.active_filter_section = None
+
 with st.sidebar:
     st.markdown("""
     <div style="
@@ -1178,23 +1222,88 @@ with st.sidebar:
         <h3 style="color: white; margin: 0; text-align: center; font-size: 18px;">🔍 Filter ETFs</h3>
     </div>
     """, unsafe_allow_html=True)
-
+    
+    # Helper info
+    st.markdown("""
+    <div style="
+        background: #EDF2F7;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+    ">
+        <p style="color: #4A5568; margin: 0; font-size: 11px; font-weight: 500;">
+            💡 Tip: Only one filter type can be active at a time
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Reset all filters button
+    if st.button("🔄 Reset All Filters", width='stretch'):
+        st.session_state.active_filter_section = None
+        for key in list(st.session_state.keys()):
+            if 'te_range' in key:
+                del st.session_state[key]
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # ==================== ASSET CLASS FILTER SECTION ====================
+    # Determine if this section should be disabled
+    asset_section_disabled = (st.session_state.active_filter_section == 'tracking_error')
+    
+    if asset_section_disabled:
+        st.markdown("""
+        <div style="
+            background: #F1F5F9;
+            padding: 12px;
+            border-radius: 8px;
+            opacity: 0.6;
+            margin-bottom: 15px;
+        ">
+            <p style="color: #64748B; margin: 0; font-size: 12px; font-weight: 600; text-align: center;">
+                🔒 Asset Class Filters (Disabled)
+            </p>
+            <p style="color: #64748B; margin: 5px 0 0 0; font-size: 10px; text-align: center;">
+                Tracking Error filter is active
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="
+            background: #2D3748;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        ">
+            <p style="color: white; margin: 0; font-size: 14px; font-weight: 600; text-align: center;">
+                📊 Asset Class Filters
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
     amc_list = ["All"] + sorted(df["amc"].dropna().unique())
-    selected_amc = st.selectbox("Select AMC", amc_list)
+    selected_amc = st.selectbox("Select AMC", amc_list, disabled=asset_section_disabled)
 
     selected_asset = st.selectbox(
         "Select Asset Class",
-        ["All", "EQUITY", "GLOBAL EQUITY", "DEBT", "COMMODITIES"]
+        ["All", "EQUITY", "GLOBAL EQUITY", "DEBT", "COMMODITIES"],
+        disabled=asset_section_disabled
     )
+    
+    # Track if asset filters are being used
+    if not asset_section_disabled and (selected_amc != "All" or selected_asset != "All"):
+        st.session_state.active_filter_section = 'asset_class'
 
     sub_cat = None
     sub_sub_cat = None
     lookup = None
 
-    if selected_asset == "EQUITY":
+    if selected_asset == "EQUITY" and not asset_section_disabled:
         sub_cat = st.selectbox(
             "Select Equity Category",
-            ["Broader", "Sectoral", "Thematic", "Strategic"]
+            ["Broader", "Sectoral", "Thematic", "Strategic"],
+            disabled=asset_section_disabled
         )
 
         lookup = {
@@ -1206,21 +1315,23 @@ with st.sidebar:
 
         sub_sub_cat = st.selectbox(
             f"Select {sub_cat}",
-            ["All"] + sorted(lookup.keys())
+            ["All"] + sorted(lookup.keys()),
+            disabled=asset_section_disabled
         )
 
-    elif selected_asset == "DEBT":
+    elif selected_asset == "DEBT" and not asset_section_disabled:
         sub_cat = st.selectbox(
             "Select Debt Category",
-            ["All", "Bharat Bond", "G-Sec", "Gilt", "Liquid", "SDL"]
+            ["All", "Bharat Bond", "G-Sec", "Gilt", "Liquid", "SDL"],
+            disabled=asset_section_disabled
         )
 
-    elif selected_asset == "COMMODITIES":
+    elif selected_asset == "COMMODITIES" and not asset_section_disabled:
         sub_cat = st.selectbox(
             "Select Commodity",
-            ["All", "Gold", "Silver"]
+            ["All", "Gold", "Silver"],
+            disabled=asset_section_disabled
         )
-
     # ============================================================
     # ETF COMPARISON SELECTOR (SIDEBAR)
     # ============================================================
@@ -1294,30 +1405,57 @@ with st.sidebar:
     if st.session_state.compare_etf_1 and st.session_state.compare_etf_2:
         col_open, col_close = st.columns(2)
         with col_open:
-            if st.button("🔍 Open Comparison", use_container_width=True):
+            if st.button("🔍 Open Comparison", width='stretch'):
                 st.session_state.show_comparison = True
                 st.rerun()
         with col_close:
             if st.session_state.show_comparison:
-                if st.button("❌ Close", use_container_width=True):
+                if st.button("❌ Close", width='stretch'):
                     st.session_state.show_comparison = False
                     st.rerun()
 
     # ============================================================
     # FILTER BY TRACKING ERROR (SIDEBAR)
     # ============================================================
+    
+    # ============================================================
+    # FILTER BY TRACKING ERROR (SIDEBAR)
+    # ============================================================
     st.markdown("---")
-    st.markdown("""
-    <div style="
-        background: #2D3748;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        margin-top: 20px;
-    ">
-        <h3 style="color: white; margin: 0; text-align: center; font-size: 18px;">📊 Filter by Tracking Error</h3>
-    </div>
-    """, unsafe_allow_html=True)
+    
+    # Determine if this section should be disabled
+    te_section_disabled = (st.session_state.active_filter_section == 'asset_class')
+
+    if te_section_disabled:
+        st.markdown("""
+        <div style="
+            background: #F1F5F9;
+            padding: 12px;
+            border-radius: 8px;
+            opacity: 0.6;
+            margin-bottom: 15px;
+        ">
+            <p style="color: #64748B; margin: 0; font-size: 12px; font-weight: 600; text-align: center;">
+                🔒 Tracking Error Filter (Disabled)
+            </p>
+            <p style="color: #64748B; margin: 5px 0 0 0; font-size: 10px; text-align: center;">
+                Asset Class filter is active
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="
+            background: #2D3748;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        ">
+            <p style="color: white; margin: 0; font-size: 14px; font-weight: 600; text-align: center;">
+                📊 Tracking Error Filter
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
     te_ranges = {
         "0.00 to 0.05": (0.00, 0.05),
@@ -1328,16 +1466,23 @@ with st.sidebar:
         "0.61 to 1.00": (0.61, 1.00),
         "1.01+": (1.01, float('inf'))
     }
-    st.markdown("**Select Tracking Error Ranges:**")
+    
+    if not te_section_disabled:
+        st.markdown("**Select Tracking Error Ranges:**")
+        st.markdown("<small style='color: #94A3B8;'>Multiple ranges can be selected</small>", unsafe_allow_html=True)
 
     # Create checkboxes for each range
     selected_te_ranges = []
     for range_label in te_ranges.keys():
-        if st.checkbox(range_label, key=f"te_range_{range_label}"):
+        if st.checkbox(range_label, key=f"te_range_{range_label}", disabled=te_section_disabled):
             selected_te_ranges.append(range_label)
+    
+    # Track if TE filters are being used
+    if selected_te_ranges and not te_section_disabled:
+        st.session_state.active_filter_section = 'tracking_error'
 
     # Display selected count if any
-    if selected_te_ranges:
+    if selected_te_ranges and not te_section_disabled:
         st.markdown(f"""
         <div style="
             background: #DBEAFE;
@@ -1347,10 +1492,12 @@ with st.sidebar:
             text-align: center;
         ">
             <p style="margin: 0; font-size: 12px; color: #1E40AF; font-weight: 600;">
-                {len(selected_te_ranges)} range(s) selected
+                ✓ {len(selected_te_ranges)} range(s) selected
             </p>
         </div>
         """, unsafe_allow_html=True)
+    
+    
 # ============================================================
 # COMPARISON MODAL/WINDOW (Full Width - Main Area)
 # ============================================================
@@ -1685,79 +1832,63 @@ def show_comparison_modal():
 if st.session_state.show_comparison and st.session_state.compare_etf_1 and st.session_state.compare_etf_2:
     show_comparison_modal()
 
-
 # ============================================================
 # FILTER LOGIC
 # ============================================================
 mask = pd.Series(True, index=df.index)
 
-# Apply Asset Class filters
-if selected_amc != "All":
-    mask &= df["_amc"] == selected_amc.lower()
+# Only apply filters from the active section
+if st.session_state.active_filter_section == 'asset_class':
+    # Only apply asset class filters
+    if selected_amc != "All":
+        mask &= df["_amc"] == selected_amc.lower()
 
-if selected_asset != "All" and selected_asset != "COMMODITIES":
-    mask &= df["_asset"].str.contains(ASSET_MAP[selected_asset], na=False)
+    if selected_asset != "All" and selected_asset != "COMMODITIES":
+        mask &= df["_asset"].str.contains(ASSET_MAP[selected_asset], na=False)
 
-if selected_asset == "COMMODITIES":
-    mask &= df["_text"].str.contains(r"commodity|gold|silver", na=False)
-    if sub_cat and sub_cat != "All":
-        commodity_map = {"Gold": r"gold", "Silver": r"silver"}
-        mask &= df["_text"].str.contains(commodity_map[sub_cat], na=False)
+    if selected_asset == "COMMODITIES":
+        mask &= df["_text"].str.contains(r"commodity|gold|silver", na=False)
+        if sub_cat and sub_cat != "All":
+            commodity_map = {"Gold": r"gold", "Silver": r"silver"}
+            mask &= df["_text"].str.contains(commodity_map[sub_cat], na=False)
 
-if selected_asset == "EQUITY" and sub_sub_cat and sub_sub_cat != "All":
-    mask &= df["_text"].str.contains(lookup[sub_sub_cat], na=False)
+    if selected_asset == "EQUITY" and sub_sub_cat and sub_sub_cat != "All":
+        mask &= df["_text"].str.contains(lookup[sub_sub_cat], na=False)
 
-if selected_asset == "DEBT" and sub_cat and sub_cat != "All":
-    debt_map = {
-        "Bharat Bond": r"bharat\s*bond",
-        "G-Sec": r"g[-\s]?sec|government",
-        "Gilt": r"gilt",
-        "Liquid": r"liquid|overnight|money\s*market",
-        "SDL": r"sdl|state\s*development"
-    }
-    mask &= df["_text"].str.contains(debt_map[sub_cat], na=False)
+    if selected_asset == "DEBT" and sub_cat and sub_cat != "All":
+        debt_map = {
+            "Bharat Bond": r"bharat\s*bond",
+            "G-Sec": r"g[-\s]?sec|government",
+            "Gilt": r"gilt",
+            "Liquid": r"liquid|overnight|money\s*market",
+            "SDL": r"sdl|state\s*development"
+        }
+        mask &= df["_text"].str.contains(debt_map[sub_cat], na=False)
 
-# Apply Tracking Error filter if selected
-if selected_te_ranges:
-    df_temp = df.copy()
-    # Use OVERALL_TRACKING_ERROR column (not tracking_difference)
-    df_temp['te_numeric'] = pd.to_numeric(df_temp['overall_tracking_error'], errors='coerce')
-    
-    te_mask = pd.Series(False, index=df_temp.index)
-    
-    for range_label in selected_te_ranges:
-        min_val, max_val = te_ranges[range_label]
+elif st.session_state.active_filter_section == 'tracking_error':
+    # Only apply tracking error filter
+    if selected_te_ranges:
+        df_temp = df.copy()
+        df_temp['te_numeric'] = pd.to_numeric(df_temp['overall_tracking_error'], errors='coerce')
         
-        if min_val is None:  # Data Not Available
-            te_mask |= df_temp['te_numeric'].isna()
-        else:
-            te_mask |= ((df_temp['te_numeric'] >= min_val) & (df_temp['te_numeric'] <= max_val))
-    
-    # Combine with existing mask (AND operation - both filters must match)
-    mask &= te_mask
+        te_mask = pd.Series(False, index=df_temp.index)
+        
+        for range_label in selected_te_ranges:
+            min_val, max_val = te_ranges[range_label]
+            
+            if min_val is None:
+                te_mask |= df_temp['te_numeric'].isna()
+            else:
+                te_mask |= ((df_temp['te_numeric'] >= min_val) & (df_temp['te_numeric'] <= max_val))
+        
+        mask &= te_mask
 
 result = df.loc[mask].copy()
 
-# Sort by tracking error if TE filter is active, otherwise keep default sorting
+# Sort by tracking error if TE filter is active
 if selected_te_ranges:
     result['te_numeric'] = pd.to_numeric(result['overall_tracking_error'], errors='coerce')
     result = result.sort_values('te_numeric', na_position='first')
-
-# Display filter summary if tracking error filter is active
-if selected_te_ranges:
-    st.markdown(f"""
-    <div style="
-        background: #DBEAFE;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        border-left: 3px solid #3B82F6;
-    ">
-        <p style="color: #1E40AF; margin: 0; font-weight: 600; font-size: 13px;">
-            📊 Filtering by {len(selected_te_ranges)} tracking error range(s)
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
 
 # ============================================================
 # METRICS & ETF SELECTOR
@@ -1794,29 +1925,151 @@ with col2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ETF SELECTOR
+#============================================================
+# GLOBAL ETF SEARCH BAR
+# ============================================================
+st.markdown("""
+<div style="
+    background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%);
+    padding: 20px 25px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+">
+    <h3 style="color: white; margin: 0 0 4px 0; font-size: 17px; font-weight: 700;">
+        🔍 Search ETFs
+    </h3>
+    <p style="color: #A0AEC0; margin: 0; font-size: 12px;">
+        Search by name, AMC, benchmark, category, or ticker
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# Initialize global search state
+if 'global_search_query' not in st.session_state:
+    st.session_state.global_search_query = ""
+
+# Full ETF list (search across ALL ETFs, not just filtered result)
+all_etfs_df = df.copy()
+
+# Search input
+search_query = st.text_input(
+    "Search ETFs",
+    value=st.session_state.global_search_query,
+    placeholder="e.g. Nifty 50, HDFC, Gold, Mirae, NIFTYBEES...",
+    label_visibility="collapsed",
+    key="global_etf_search_input"
+)
+
+st.session_state.global_search_query = search_query
+
+# Build a searchable combined text column across key fields
+search_fields = ['etf', 'amc', 'benchmark_index', 'category', 'asset_class', 'symbol']
+for field in search_fields:
+    if field not in all_etfs_df.columns:
+        all_etfs_df[field] = ""
+
+all_etfs_df['_search_text'] = (
+    all_etfs_df['etf'].fillna('') + ' ' +
+    all_etfs_df['amc'].fillna('') + ' ' +
+    all_etfs_df['benchmark_index'].fillna('') + ' ' +
+    all_etfs_df['category'].fillna('') + ' ' +
+    all_etfs_df['asset_class'].fillna('') + ' ' +
+    all_etfs_df['symbol'].fillna('')
+).str.lower()
+
+# Filter logic
+if search_query.strip():
+    query_lower = search_query.strip().lower()
+    # Split multi-word queries for AND matching
+    query_terms = query_lower.split()
+    search_mask = pd.Series(True, index=all_etfs_df.index)
+    for term in query_terms:
+        search_mask &= all_etfs_df['_search_text'].str.contains(term, na=False)
+    
+    search_results = all_etfs_df[search_mask]['etf'].dropna().unique().tolist()
+    search_results = sorted(search_results)
+    
+    match_count = len(search_results)
+    
+    if match_count == 0:
+        st.markdown("""
+        <div style="
+            background: #FFF5F5;
+            border: 1px solid #FEB2B2;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        ">
+            <p style="color: #C53030; margin: 0; font-size: 13px; font-weight: 600;">
+                ❌ No ETFs matched your search. Try different keywords.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        search_results_for_select = [""]
+    else:
+        st.markdown(f"""
+        <div style="
+            background: #F0FFF4;
+            border: 1px solid #9AE6B4;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        ">
+            <p style="color: #276749; margin: 0; font-size: 13px; font-weight: 600;">
+                ✅ {match_count} ETF{"s" if match_count != 1 else ""} found
+            </p>
+            <p style="color: #48BB78; margin: 0; font-size: 11px;">
+                Select from dropdown below ↓
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        search_results_for_select = [""] + search_results
+else:
+    # No search query — show full filtered result list
+    search_results_for_select = None
+    match_count = None
+
+# ── ETF selector (uses search results if query exists, else uses sidebar-filtered result) ──
 st.markdown("""
 <div style="
     background: #EDF2F7;
-    padding: 15px;
+    padding: 10px 15px;
     border-radius: 8px;
-    margin-bottom: 15px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 ">
-    <h3 style="color: #2D3748; margin: 0; font-size: 16px; text-align: center;">🎯 Select an ETF to View Details</h3>
+    <h3 style="color: #2D3748; margin: 0; font-size: 14px; text-align: center;">
+        🎯 Select an ETF to View Details
+        <span style="font-weight: 400; color: #718096; font-size: 12px;">
+            {"— showing search results" if search_query.strip() else "— use search above or sidebar filters"}
+        </span>
+    </h3>
 </div>
 """, unsafe_allow_html=True)
 
 # Check if ETF was selected from Tracking Error tool
 if 'te_selected_etf' in st.session_state and st.session_state.te_selected_etf:
     selected_etf = st.session_state.te_selected_etf
-    # Clear the session state after using it
     st.session_state.te_selected_etf = None
+elif search_results_for_select is not None:
+    # Use search results
+    selected_etf = st.selectbox(
+        "Select ETF from search results",
+        search_results_for_select,
+        label_visibility="collapsed",
+        key="etf_selector_search"
+    )
 else:
+    # Use sidebar-filtered result
     selected_etf = st.selectbox(
         "Select ETF",
         [""] + sorted(result["etf"].dropna().unique().tolist()),
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="etf_selector_filter"
     )
 
 # ============================================================
@@ -1855,7 +2108,7 @@ if selected_etf:
     </div>
     """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview & Holdings", "💹 NAV Info", "📈 Technical Analysis", "ℹ️ Details", "📈 Return Analysis"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Overview & Holdings", "💹 NAV Info", "📈 Technical Analysis", "ℹ️ Details", "📈 Return Analysis", "🧮 Return Calculator"])
 
     with tab1:
         col1, col2, col3 = st.columns(3)
@@ -1992,7 +2245,7 @@ if selected_etf:
                         ax_pie.axis('equal')
                         fig_pie.tight_layout()
 
-                        st.pyplot(fig_pie)
+                        st.pyplot(fig_pie, width='content')
 
                         st.markdown("""
                         <div style="
@@ -2178,9 +2431,7 @@ if selected_etf:
                             legend=None)
                 ).properties(height=300)
 
-                st.altair_chart(chart, use_container_width=True)
-
-    
+                st.altair_chart(chart, width='stretch')
 
     with tab3:
         yfinance_ticker = str(row.get('yfinance_ticker', '')).strip()
@@ -2207,7 +2458,42 @@ if selected_etf:
                     ])
 
                     with subtab1:
+
+                        # ==========================
+                        # 5Y PRICE CHART (NEW)
+                        # ==========================
+                        st.markdown("### 📈 5-Year Price Trend")
+
+                        price_fig = go.Figure()
+
+                        price_fig.add_trace(
+                            go.Scatter(
+                                x=etf_data.index,
+                                y=etf_data['Close'],
+                                mode='lines',
+                                name='Price',
+                                line=dict(width=2),
+                                hovertemplate='Date: %{x}<br>Price: ₹%{y:.2f}<extra></extra>'
+                            )
+                        )
+
+                        price_fig.update_layout(
+                            height=400,
+                            hovermode='x unified',
+                            xaxis_title="Date",
+                            yaxis_title="Price (₹)"
+                        )
+
+                        st.plotly_chart(price_fig, width='stretch')
+
+                        # ==========================
+                        # EXISTING MA CHART
+                        # ==========================
+                        st.markdown("### 📊 Moving Averages")
+
                         st.plotly_chart(charts[0], width='stretch')
+
+                        
 
                     with subtab2:
                         st.plotly_chart(charts[1], width='stretch')
@@ -2284,7 +2570,7 @@ if selected_etf:
                         volume_charts = create_volume_charts(analyzed_data, selected_etf)
 
                         for i, fig in enumerate(volume_charts):
-                            st.pyplot(fig)
+                            st.pyplot(fig, width='content')
 
                     with subtab9:
                         st.plotly_chart(charts[7], width='stretch')
@@ -2419,7 +2705,467 @@ if selected_etf:
                         cols[i % 3].metric(label, f"{val:.2f}%")
 
         else:
-            st.warning("No yfinance ticker available for this ETF")
+            st.warning("No yfinance ticker available for this ETF")         
+    
+    with tab6:
+
+        st.markdown("""
+        <style>
+        .rc-header {
+            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+            border: 1px solid #C7D2FE;
+            border-radius: 14px;
+            padding: 22px 28px;
+            margin-bottom: 24px;
+        }
+        .rc-header h2 { font-size: 22px; font-weight: 700; color: #3730A3; margin: 0 0 4px 0; }
+        .rc-header p  { font-size: 13px; color: #6366F1; margin: 0; }
+        .rc-cagr-pill {
+            display: inline-block; background: #F0FDF4;
+            border: 1px solid #86EFAC; border-radius: 20px;
+            padding: 4px 14px; font-size: 12px; font-weight: 600;
+            color: #15803D; margin: 3px 4px;
+        }
+        .rc-cagr-section {
+            background: #F0FDF4; border: 1px solid #BBF7D0;
+            border-radius: 10px; padding: 14px 16px; margin-bottom: 20px;
+        }
+        .rc-cagr-section p {
+            font-size: 11px; font-weight: 700; color: #166534;
+            letter-spacing: 0.8px; text-transform: uppercase; margin: 0 0 8px 0;
+        }
+        .rc-result-card {
+            background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
+            border: 2px solid #A5B4FC; border-radius: 16px;
+            padding: 24px 20px; text-align: center;
+            box-shadow: 0 4px 20px rgba(99,102,241,0.10);
+            margin-bottom: 12px;
+        }
+        .rc-result-card-real {
+            background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+            border: 2px solid #FCA5A5; border-radius: 16px;
+            padding: 20px; text-align: center;
+            box-shadow: 0 4px 12px rgba(239,68,68,0.10);
+        }
+        .rc-result-label  { font-size: 11px; font-weight: 700; color: #6366F1; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+        .rc-result-label-real { font-size: 11px; font-weight: 700; color: #EA580C; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+        .rc-result-value  { font-size: 38px; font-weight: 800; color: #3730A3; margin: 0; letter-spacing: -1px; line-height: 1.1; }
+        .rc-result-value-real { font-size: 32px; font-weight: 800; color: #C2410C; margin: 0; letter-spacing: -1px; line-height: 1.1; }
+        .rc-result-invested { font-size: 13px; color: #6B7280; margin: 8px 0 4px 0; }
+        .rc-gain-pos { color: #16A34A; font-weight: 700; font-size: 15px; }
+        .rc-gain-neg { color: #DC2626; font-weight: 700; font-size: 15px; }
+        .rc-stat { background: white; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px 12px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .rc-stat-label { font-size: 10px; font-weight: 700; color: #9CA3AF; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px; }
+        .rc-stat-value { font-size: 18px; font-weight: 700; color: #1F2937; }
+        .rc-section-title { font-size: 14px; font-weight: 700; color: #374151; margin: 20px 0 12px 0; padding-bottom: 6px; border-bottom: 2px solid #E5E7EB; }
+        .rc-return-card  { background: white; border: 1px solid #E5E7EB; border-radius: 8px; padding: 10px 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .rc-return-period { font-size: 10px; font-weight: 600; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.5px; }
+        .rc-inflation-box {
+            background: #FFF7ED; border: 1px solid #FED7AA;
+            border-radius: 10px; padding: 14px 16px; margin: 16px 0;
+        }
+        .rc-disclaimer { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: #92400E; text-align: center; margin-top: 24px; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        yfinance_ticker = str(row.get('yfinance_ticker', '')).strip()
+
+        if not yfinance_ticker:
+            st.warning("No price data ticker available for this ETF — return calculator unavailable.")
+        else:
+            # ── Header ────────────────────────────────────────────────────
+            st.markdown(f"""
+            <div class="rc-header">
+                <h2>🧮 Return Calculator</h2>
+                <p>{selected_etf}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # ── Fetch data ────────────────────────────────────────────────
+            with st.spinner("Loading historical data…"):
+                etf_hist    = fetch_etf_data(yfinance_ticker)
+            cagr_values = calculate_cagr(etf_hist)   or {}
+            returns     = calculate_returns(etf_hist) or {}
+
+            # ── CAGR pills ────────────────────────────────────────────────
+            if cagr_values:
+                pills = "".join(
+                    f'<span class="rc-cagr-pill">{lbl}: {val:.2f}%</span>'
+                    for lbl, val in cagr_values.items() if val is not None
+                )
+                st.markdown(f"""
+                <div class="rc-cagr-section">
+                    <p>📈 Historical CAGR Reference</p>
+                    {pills}
+                </div>
+                """, unsafe_allow_html=True)
+
+            # ── Mode + Rate ───────────────────────────────────────────────
+            col_mode, col_rate = st.columns([1, 2])
+            with col_mode:
+                calc_mode = st.radio(
+                    "Mode",
+                    ["💰 Lumpsum", "📅 SIP (Monthly)"],
+                    key="rc_mode"
+                )
+            with col_rate:
+                rate_options = {
+                    f"{lbl} ({val:.2f}%)": val
+                    for lbl, val in cagr_values.items() if val is not None
+                }
+                rate_options["✏️ Custom Rate"] = None
+                chosen_label = st.selectbox(
+                    "Expected Annual Return (CAGR)",
+                    list(rate_options.keys()),
+                    key="rc_rate_label"
+                )
+                if rate_options[chosen_label] is None:
+                    annual_rate = st.number_input(
+                        "Custom rate (%)",
+                        min_value=-50.0, max_value=100.0,
+                        value=12.0, step=0.5, format="%.1f",
+                        key="rc_custom_rate"
+                    )
+                else:
+                    annual_rate = rate_options[chosen_label]
+
+            # ── Inflation toggle ──────────────────────────────────────────
+            st.markdown(
+                "<hr style='border:none;border-top:1px solid #E5E7EB;margin:16px 0'>",
+                unsafe_allow_html=True
+            )
+            use_inflation = st.checkbox(
+                "📉 Adjust for Inflation (show real purchasing power)",
+                value=False,
+                key="rc_use_inflation"
+            )
+            inflation_rate = 0.0
+            if use_inflation:
+                st.markdown("""
+                <div class="rc-inflation-box">
+                    <b style="color:#C2410C;font-size:13px;">🌡️ Inflation Settings</b>
+                    <p style="color:#6B7280;font-size:12px;margin:4px 0 10px 0;">
+                        India's long-run CPI inflation averages ~5–7%. Adjust to your expectation.
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                inflation_rate = st.slider(
+                    "Expected Annual Inflation Rate (%)",
+                    min_value=1.0, max_value=15.0,
+                    value=6.0, step=0.5,
+                    key="rc_inflation_rate"
+                )
+                real_rate = ((1 + annual_rate / 100) / (1 + inflation_rate / 100) - 1) * 100
+                st.info(
+                    f"📌 **Real (inflation-adjusted) return = {real_rate:.2f}%**  "
+                    f"(Nominal {annual_rate:.1f}% − Inflation {inflation_rate:.1f}%  "
+                    f"using Fisher equation)"
+                )
+
+            st.markdown(
+                "<hr style='border:none;border-top:1px solid #E5E7EB;margin:16px 0'>",
+                unsafe_allow_html=True
+            )
+
+            # ════════════════════════════════════════════════════════════
+            # LUMPSUM
+            # ════════════════════════════════════════════════════════════
+            if calc_mode == "💰 Lumpsum":
+
+                col_inp, col_res = st.columns([1, 1], gap="large")
+
+                with col_inp:
+                    st.markdown('<p class="rc-section-title">Investment Details</p>', unsafe_allow_html=True)
+                    lump_amount = st.number_input(
+                        "Lumpsum Amount (₹)",
+                        min_value=1_000, max_value=10_000_000,
+                        value=100_000, step=1_000,
+                        format="%d", key="rc_lump_amount"
+                    )
+                    lump_years = st.slider(
+                        "Investment Horizon (Years)",
+                        min_value=1, max_value=30, value=5,
+                        key="rc_lump_years"
+                    )
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    s1, s2, s3 = st.columns(3)
+                    doubling = round(72 / annual_rate, 1) if annual_rate > 0 else "—"
+                    with s1:
+                        st.markdown(f'<div class="rc-stat"><div class="rc-stat-label">Nominal Rate</div><div class="rc-stat-value">{annual_rate:.1f}%</div></div>', unsafe_allow_html=True)
+                    with s2:
+                        st.markdown(f'<div class="rc-stat"><div class="rc-stat-label">Horizon</div><div class="rc-stat-value">{lump_years}Y</div></div>', unsafe_allow_html=True)
+                    with s3:
+                        st.markdown(f'<div class="rc-stat"><div class="rc-stat-label">Rule of 72</div><div class="rc-stat-value">{doubling}Y</div></div>', unsafe_allow_html=True)
+
+                with col_res:
+                    # ── Nominal calculation ──────────────────────────────
+                    fv       = lump_amount * ((1 + annual_rate / 100) ** lump_years)
+                    gain     = fv - lump_amount
+                    gain_pct = (gain / lump_amount) * 100
+                    g_class  = "rc-gain-pos" if gain >= 0 else "rc-gain-neg"
+                    g_sign   = "+" if gain >= 0 else ""
+
+                    st.markdown('<p class="rc-section-title">Projected Outcome</p>', unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div class="rc-result-card">
+                        <div class="rc-result-label">💰 Nominal Future Value</div>
+                        <div class="rc-result-value">₹{fv:,.0f}</div>
+                        <div class="rc-result-invested">Amount Invested: ₹{lump_amount:,.0f}</div>
+                        <div class="{g_class}">{g_sign}₹{gain:,.0f} &nbsp;({g_sign}{gain_pct:.1f}%)</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # ── Inflation-adjusted calculation ───────────────────
+                    if use_inflation:
+                        real_fv      = fv / ((1 + inflation_rate / 100) ** lump_years)
+                        real_gain    = real_fv - lump_amount
+                        real_gain_pct = (real_gain / lump_amount) * 100
+                        rg_class     = "rc-gain-pos" if real_gain >= 0 else "rc-gain-neg"
+                        rg_sign      = "+" if real_gain >= 0 else ""
+                        # purchasing power of invested amount in today's money already = lump_amount
+                        st.markdown(f"""
+                        <div class="rc-result-card-real">
+                            <div class="rc-result-label-real">📉 Real Value (Today's Purchasing Power @ {inflation_rate:.1f}% inflation)</div>
+                            <div class="rc-result-value-real">₹{real_fv:,.0f}</div>
+                            <div class="rc-result-invested">Equivalent to today's ₹{lump_amount:,.0f}</div>
+                            <div class="{rg_class}">{rg_sign}₹{real_gain:,.0f} &nbsp;({rg_sign}{real_gain_pct:.1f}% real gain)</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                # ── Growth chart ─────────────────────────────────────────
+                st.markdown('<p class="rc-section-title">📈 Projected Growth</p>', unsafe_allow_html=True)
+                yr_range  = list(range(0, lump_years + 1))
+                proj_vals = [lump_amount * ((1 + annual_rate / 100) ** y) for y in yr_range]
+
+                proj_fig = go.Figure()
+                proj_fig.add_trace(go.Scatter(
+                    x=yr_range, y=proj_vals,
+                    mode="lines+markers", fill="tozeroy",
+                    fillcolor="rgba(99,102,241,0.08)",
+                    line=dict(color="#6366F1", width=2.5),
+                    marker=dict(size=5, color="#6366F1"),
+                    name="Nominal Value",
+                    hovertemplate="Year %{x}: ₹%{y:,.0f}<extra></extra>"
+                ))
+                proj_fig.add_hline(
+                    y=lump_amount, line_dash="dot", line_color="#9CA3AF",
+                    annotation_text="Invested Amount",
+                    annotation_font_color="#6B7280",
+                    annotation_position="bottom right"
+                )
+
+                if use_inflation:
+                    real_vals = [
+                        lump_amount * ((1 + annual_rate / 100) ** y) / ((1 + inflation_rate / 100) ** y)
+                        for y in yr_range
+                    ]
+                    proj_fig.add_trace(go.Scatter(
+                        x=yr_range, y=real_vals,
+                        mode="lines+markers",
+                        line=dict(color="#EA580C", width=2, dash="dash"),
+                        marker=dict(size=4, color="#EA580C"),
+                        name=f"Real Value ({inflation_rate:.1f}% inflation)",
+                        hovertemplate="Year %{x} (Real): ₹%{y:,.0f}<extra></extra>"
+                    ))
+
+                proj_fig.update_layout(
+                    height=320, paper_bgcolor="white", plot_bgcolor="#FAFAFA",
+                    xaxis=dict(title="Years", gridcolor="#F3F4F6", linecolor="#E5E7EB", color="#6B7280"),
+                    yaxis=dict(title="Value (₹)", gridcolor="#F3F4F6", linecolor="#E5E7EB", color="#6B7280", tickformat=",.0f"),
+                    hovermode="x unified",
+                    legend=dict(bgcolor="white", bordercolor="#E5E7EB", borderwidth=1, font=dict(color="#374151")),
+                    margin=dict(l=10, r=10, t=10, b=10)
+                )
+                st.plotly_chart(proj_fig, use_container_width=True)
+
+            # ════════════════════════════════════════════════════════════
+            # SIP
+            # ════════════════════════════════════════════════════════════
+            else:
+                col_inp, col_res = st.columns([1, 1], gap="large")
+
+                with col_inp:
+                    st.markdown('<p class="rc-section-title">SIP Details</p>', unsafe_allow_html=True)
+                    monthly_sip = st.number_input(
+                        "Monthly SIP Amount (₹)",
+                        min_value=500, max_value=1_000_000,
+                        value=10_000, step=500,
+                        format="%d", key="rc_sip_amount"
+                    )
+                    sip_years = st.slider(
+                        "Investment Horizon (Years)",
+                        min_value=1, max_value=30, value=10,
+                        key="rc_sip_years"
+                    )
+                    monthly_rate   = annual_rate / 100 / 12
+                    n_months       = sip_years * 12
+                    total_invested = monthly_sip * n_months
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    s1, s2, s3 = st.columns(3)
+                    with s1:
+                        st.markdown(f'<div class="rc-stat"><div class="rc-stat-label">Nominal Rate</div><div class="rc-stat-value">{annual_rate:.1f}%</div></div>', unsafe_allow_html=True)
+                    with s2:
+                        st.markdown(f'<div class="rc-stat"><div class="rc-stat-label">Total Invested</div><div class="rc-stat-value">₹{total_invested/100000:.1f}L</div></div>', unsafe_allow_html=True)
+                    with s3:
+                        st.markdown(f'<div class="rc-stat"><div class="rc-stat-label">Horizon</div><div class="rc-stat-value">{sip_years}Y</div></div>', unsafe_allow_html=True)
+
+                with col_res:
+                    # ── Nominal SIP calculation ──────────────────────────
+                    if monthly_rate == 0:
+                        sip_fv = total_invested
+                    else:
+                        sip_fv = monthly_sip * (
+                            ((1 + monthly_rate) ** n_months - 1) / monthly_rate
+                        ) * (1 + monthly_rate)
+
+                    sip_gain     = sip_fv - total_invested
+                    sip_gain_pct = (sip_gain / total_invested) * 100 if total_invested else 0
+                    g_class      = "rc-gain-pos" if sip_gain >= 0 else "rc-gain-neg"
+                    g_sign       = "+" if sip_gain >= 0 else ""
+
+                    st.markdown('<p class="rc-section-title">Projected Outcome</p>', unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div class="rc-result-card">
+                        <div class="rc-result-label">💰 Nominal Future Value</div>
+                        <div class="rc-result-value">₹{sip_fv:,.0f}</div>
+                        <div class="rc-result-invested">Total Invested: ₹{total_invested:,.0f}</div>
+                        <div class="{g_class}">{g_sign}₹{sip_gain:,.0f} &nbsp;({g_sign}{sip_gain_pct:.1f}%)</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # ── Inflation-adjusted SIP calculation ───────────────
+                    if use_inflation:
+                        # Deflate nominal corpus by inflation over the horizon
+                        real_sip_fv      = sip_fv / ((1 + inflation_rate / 100) ** sip_years)
+                        real_sip_gain    = real_sip_fv - total_invested
+                        real_sip_gain_pct = (real_sip_gain / total_invested) * 100 if total_invested else 0
+                        rg_class         = "rc-gain-pos" if real_sip_gain >= 0 else "rc-gain-neg"
+                        rg_sign          = "+" if real_sip_gain >= 0 else ""
+                        st.markdown(f"""
+                        <div class="rc-result-card-real">
+                            <div class="rc-result-label-real">📉 Real Value (Today's Purchasing Power @ {inflation_rate:.1f}% inflation)</div>
+                            <div class="rc-result-value-real">₹{real_sip_fv:,.0f}</div>
+                            <div class="rc-result-invested">Total Invested: ₹{total_invested:,.0f} (today's ₹)</div>
+                            <div class="{rg_class}">{rg_sign}₹{real_sip_gain:,.0f} &nbsp;({rg_sign}{real_sip_gain_pct:.1f}% real gain)</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                # ── SIP chart ────────────────────────────────────────────
+                st.markdown('<p class="rc-section-title">📈 SIP Growth Projection</p>', unsafe_allow_html=True)
+                sip_m_range   = list(range(0, n_months + 1))
+                sip_inv_curve = [monthly_sip * m for m in sip_m_range]
+                sip_val_curve = []
+                for m in sip_m_range:
+                    if m == 0:
+                        sip_val_curve.append(0)
+                    elif monthly_rate == 0:
+                        sip_val_curve.append(monthly_sip * m)
+                    else:
+                        sip_val_curve.append(
+                            monthly_sip * (
+                                ((1 + monthly_rate) ** m - 1) / monthly_rate
+                            ) * (1 + monthly_rate)
+                        )
+
+                sip_fig = go.Figure()
+                sip_fig.add_trace(go.Scatter(
+                    x=sip_m_range, y=sip_val_curve,
+                    mode="lines", name="Nominal Value",
+                    fill="tozeroy", fillcolor="rgba(99,102,241,0.08)",
+                    line=dict(color="#6366F1", width=2.5),
+                    hovertemplate="Month %{x}: ₹%{y:,.0f}<extra></extra>"
+                ))
+                sip_fig.add_trace(go.Scatter(
+                    x=sip_m_range, y=sip_inv_curve,
+                    mode="lines", name="Amount Invested",
+                    line=dict(color="#9CA3AF", width=1.5, dash="dot"),
+                    hovertemplate="Month %{x}: ₹%{y:,.0f}<extra></extra>"
+                ))
+
+                if use_inflation:
+                    monthly_inflation = inflation_rate / 100 / 12
+                    real_sip_curve = [
+                        v / ((1 + monthly_inflation) ** m) if m > 0 else 0
+                        for m, v in zip(sip_m_range, sip_val_curve)
+                    ]
+                    sip_fig.add_trace(go.Scatter(
+                        x=sip_m_range, y=real_sip_curve,
+                        mode="lines", name=f"Real Value ({inflation_rate:.1f}% inflation)",
+                        line=dict(color="#EA580C", width=2, dash="dash"),
+                        hovertemplate="Month %{x} (Real): ₹%{y:,.0f}<extra></extra>"
+                    ))
+
+                sip_fig.update_layout(
+                    height=320, paper_bgcolor="white", plot_bgcolor="#FAFAFA",
+                    xaxis=dict(title="Month", gridcolor="#F3F4F6", linecolor="#E5E7EB", color="#6B7280"),
+                    yaxis=dict(title="Value (₹)", gridcolor="#F3F4F6", linecolor="#E5E7EB", color="#6B7280", tickformat=",.0f"),
+                    hovermode="x unified",
+                    legend=dict(bgcolor="white", bordercolor="#E5E7EB", borderwidth=1, font=dict(color="#374151")),
+                    margin=dict(l=10, r=10, t=10, b=10)
+                )
+                st.plotly_chart(sip_fig, use_container_width=True)
+
+            # ── Historical price chart (always shown) ────────────────────
+            st.markdown('<p class="rc-section-title">📊 ETF Historical Price Chart</p>', unsafe_allow_html=True)
+            if etf_hist is not None and not etf_hist.empty:
+                sma50     = etf_hist['Close'].rolling(50).mean()
+                price_fig = go.Figure()
+                price_fig.add_trace(go.Scatter(
+                    x=etf_hist.index, y=etf_hist['Close'],
+                    mode='lines', name='Close Price',
+                    fill='tozeroy', fillcolor='rgba(99,102,241,0.07)',
+                    line=dict(color='#6366F1', width=2),
+                    hovertemplate='%{x|%d %b %Y}: ₹%{y:.2f}<extra></extra>'
+                ))
+                price_fig.add_trace(go.Scatter(
+                    x=etf_hist.index, y=sma50,
+                    mode='lines', name='SMA 50',
+                    line=dict(color='#F59E0B', width=1.5, dash='dot'),
+                    hovertemplate='SMA50: ₹%{y:.2f}<extra></extra>'
+                ))
+                price_fig.update_layout(
+                    height=350, paper_bgcolor="white", plot_bgcolor="#FAFAFA",
+                    xaxis=dict(title="Date", gridcolor="#F3F4F6", linecolor="#E5E7EB", color="#6B7280"),
+                    yaxis=dict(title="Price (₹)", gridcolor="#F3F4F6", linecolor="#E5E7EB", color="#6B7280"),
+                    hovermode="x unified",
+                    legend=dict(bgcolor="white", bordercolor="#E5E7EB", borderwidth=1, font=dict(color="#374151")),
+                    margin=dict(l=10, r=10, t=10, b=10)
+                )
+                st.plotly_chart(price_fig, use_container_width=True)
+            else:
+                st.info("Historical price data not available for this ETF.")
+
+            # ── Actual returns strip ─────────────────────────────────────
+            if returns:
+                st.markdown('<p class="rc-section-title">📊 Actual Historical Returns</p>', unsafe_allow_html=True)
+                ret_items = list(returns.items())
+                ret_cols  = st.columns(len(ret_items))
+                for col, (period, val) in zip(ret_cols, ret_items):
+                    if val is not None:
+                        color = "#16A34A" if val >= 0 else "#DC2626"
+                        sign  = "+" if val >= 0 else ""
+                        col.markdown(f"""
+                        <div class="rc-return-card">
+                            <div class="rc-return-period">{period}</div>
+                            <div style="font-size:15px;font-weight:700;color:{color};margin-top:4px;">
+                                {sign}{val:.1f}%
+                            </div>
+                        </div>""", unsafe_allow_html=True)
+                    else:
+                        col.markdown(f"""
+                        <div class="rc-return-card">
+                            <div class="rc-return-period">{period}</div>
+                            <div style="font-size:14px;color:#9CA3AF;margin-top:4px;">N/A</div>
+                        </div>""", unsafe_allow_html=True)
+
+            # ── Disclaimer ───────────────────────────────────────────────
+            st.markdown("""
+            <div class="rc-disclaimer">
+                ⚠️ Projections are illustrative only. Past returns do not guarantee future performance.
+                Inflation adjustment shows estimated purchasing power — actual inflation may vary.
+                Please consult a financial advisor before investing.
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # ============================================================
